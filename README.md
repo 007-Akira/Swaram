@@ -50,6 +50,21 @@ readiness are available at <http://localhost:8000/health> and
 The worker normally polls continuously. Verify one PostgreSQL-backed idle cycle
 and exit cleanly with `pnpm worker:once`.
 
+## Private session API
+
+`POST /api/v1/sessions` creates an expiring private session and returns its
+access token once. Send that secret as `X-Session-Token` for every session,
+upload, playback, and deletion request. The database stores only its SHA-256
+hash. Audio uploads are limited by `UPLOAD_MAX_BYTES` and
+`AUDIO_MAX_DURATION_SECONDS`, then inspected with FFprobe for actual
+decodability as MP3, WAV, M4A, or FLAC. TXT/LRC/SRT lyrics must be UTF-8 and
+are normalized to Unicode NFC.
+
+Objects are stored under `PRIVATE_DATA_ROOT/private` with random keys and
+mode-restricted directories. Paths and permanent public URLs are never
+returned. Authorized playback supports HTTP byte ranges through the API.
+Sessions expire after `SESSION_RETENTION_HOURS` (24 hours by default).
+
 See
 [the architecture overview](docs/architecture.md) for component boundaries.
 PostgreSQL setup and migration commands are documented in
