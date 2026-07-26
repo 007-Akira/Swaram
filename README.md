@@ -4,6 +4,8 @@
 
 Swaram is a Malayalam-only, privacy-focused singing pitch-practice
 application. The project is under active, phase-by-phase development.
+This public repository contains the software engine only. It contains no
+bundled songs or lyrics and must never receive private user media.
 
 ## Repository layout
 
@@ -13,7 +15,7 @@ application. The project is under active, phase-by-phase development.
 - `packages/contracts` — cross-service contract package
 - `packages/audio-core` — browser audio primitives
 - `packages/ui` — shared UI primitives
-- `data/uploads` and `data/processed` — private local runtime storage
+- `data/private` — ignored, private local runtime storage
 
 Redis, Celery, RQ, and MinIO are intentionally not part of the MVP.
 
@@ -86,6 +88,8 @@ immediately through the session API.
 
 See
 [the architecture overview](docs/architecture.md) for component boundaries.
+Current workflow, browser/format support, privacy behavior, and product
+limitations are described in [the user guide](docs/user-guide.md).
 Security boundaries, concrete controls, deployment requirements, and residual
 risks are recorded in [the threat model](docs/threat-model.md).
 PostgreSQL setup and migration commands are documented in
@@ -128,3 +132,5 @@ Secure microphone lifecycle behavior is documented in
 [the microphone capture guide](docs/microphone-capture.md).
 The worker's bounded FFmpeg normalization contract is documented in
 [the audio processing guide](docs/audio-processing.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting.
