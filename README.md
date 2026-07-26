@@ -81,3 +81,5 @@ Database integration tests require an explicit disposable
 
 Authorized WAV reference contour generation is documented in
 [the offline contour guide](docs/reference-contour.md).
+Browser YIN frame sizing and sample-rate trade-offs are documented in
+[the pitch detection guide](docs/browser-pitch-detection.md).
