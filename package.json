@@ -18,7 +18,8 @@
     "format:check": "prettier --check .",
     "db:upgrade": ".venv/bin/alembic -c services/api/alembic.ini upgrade head",
     "db:downgrade": ".venv/bin/alembic -c services/api/alembic.ini downgrade -1",
-    "db:status": ".venv/bin/alembic -c services/api/alembic.ini current"
+    "db:status": ".venv/bin/alembic -c services/api/alembic.ini current",
+    "worker:once": ".venv/bin/swaram-worker --once"
   },
   "devDependencies": {
     "prettier": "3.5.3",

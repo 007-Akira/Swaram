@@ -47,6 +47,9 @@ readiness are available at <http://localhost:8000/health> and
 <http://localhost:8000/ready>. API startup never applies migrations; run
 `pnpm db:upgrade` explicitly.
 
+The worker normally polls continuously. Verify one PostgreSQL-backed idle cycle
+and exit cleanly with `pnpm worker:once`.
+
 See
 [the architecture overview](docs/architecture.md) for component boundaries.
 PostgreSQL setup and migration commands are documented in
