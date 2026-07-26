@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import secrets
 import tempfile
@@ -93,6 +94,11 @@ class LyricDocumentUpdate(BaseModel):
 
 class DeletedResponse(BaseModel):
     deleted: bool
+
+
+class PlaybackUrlResponse(BaseModel):
+    url: str
+    expires_at: datetime
 
 
 class ReadinessIssueResponse(BaseModel):
@@ -468,6 +474,15 @@ async def playback_asset(
     asset = next((item for item in practice_session.assets if item.id == asset_id), None)
     if asset is None or asset.kind not in {AssetKind.ORIGINAL_AUDIO, AssetKind.INSTRUMENTAL}:
         raise ApiError(status.HTTP_404_NOT_FOUND, "asset_not_found", "Asset not found")
+    return _playback_response(request, practice_session, storage, asset)
+
+
+def _playback_response(
+    request: Request,
+    practice_session: PracticeSession,
+    storage: PrivateStorage,
+    asset: UploadedAsset,
+) -> Response:
     try:
         object_stat = storage.stat(practice_session.id, asset.object_key)
         byte_range = parse_range_header(request.headers.get("range"), object_stat.size_bytes)
@@ -492,6 +507,87 @@ async def playback_asset(
         media_type=asset.media_type,
         headers=headers,
     )
+
+
+def _playback_signature(
+    practice_session: PracticeSession,
+    asset_id: uuid.UUID,
+    expires: int,
+) -> str:
+    message = f"{practice_session.id}:{asset_id}:{expires}".encode()
+    return hmac.new(
+        practice_session.owner_token_hash.encode(),
+        message,
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _utc_datetime(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+@router.get(
+    "/sessions/{session_id}/assets/{asset_id}/playback-url",
+    response_model=PlaybackUrlResponse,
+)
+async def playback_url(
+    request: Request,
+    practice_session: Annotated[PracticeSession, Depends(require_session)],
+    asset_id: uuid.UUID,
+) -> PlaybackUrlResponse:
+    asset = next((item for item in practice_session.assets if item.id == asset_id), None)
+    if asset is None or asset.kind not in {AssetKind.ORIGINAL_AUDIO, AssetKind.INSTRUMENTAL}:
+        raise ApiError(status.HTTP_404_NOT_FOUND, "asset_not_found", "Asset not found")
+    expires_at = min(
+        _utc_datetime(practice_session.expires_at),
+        datetime.now(UTC) + timedelta(minutes=5),
+    )
+    expires = int(expires_at.timestamp())
+    signature = _playback_signature(practice_session, asset.id, expires)
+    url = request.url_for(
+        "signed_playback_asset",
+        session_id=str(practice_session.id),
+        asset_id=str(asset.id),
+    )
+    return PlaybackUrlResponse(
+        url=f"{url}?expires={expires}&signature={signature}",
+        expires_at=expires_at,
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/assets/{asset_id}/signed-playback",
+    name="signed_playback_asset",
+)
+async def signed_playback_asset(
+    request: Request,
+    db: Annotated[Session, Depends(get_db_session)],
+    storage: Annotated[PrivateStorage, Depends(get_storage)],
+    session_id: uuid.UUID,
+    asset_id: uuid.UUID,
+    expires: int,
+    signature: str,
+) -> Response:
+    practice_session = db.scalar(
+        select(PracticeSession)
+        .where(PracticeSession.id == session_id)
+        .options(selectinload(PracticeSession.assets))
+    )
+    now = datetime.now(UTC)
+    if (
+        practice_session is None
+        or expires < int(now.timestamp())
+        or expires > int(_utc_datetime(practice_session.expires_at).timestamp())
+        or not secrets.compare_digest(
+            signature,
+            _playback_signature(practice_session, asset_id, expires),
+        )
+    ):
+        raise ApiError(status.HTTP_404_NOT_FOUND, "asset_not_found", "Asset not found")
+    asset = next((item for item in practice_session.assets if item.id == asset_id), None)
+    if asset is None or asset.kind not in {AssetKind.ORIGINAL_AUDIO, AssetKind.INSTRUMENTAL}:
+        raise ApiError(status.HTTP_404_NOT_FOUND, "asset_not_found", "Asset not found")
+    return _playback_response(request, practice_session, storage, asset)
 
 
 @router.get(

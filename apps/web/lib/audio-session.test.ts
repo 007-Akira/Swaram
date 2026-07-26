@@ -45,6 +45,7 @@ function environment() {
   >();
   const playback = {
     src: "",
+    crossOrigin: null,
     currentTime: 0,
     duration: 60,
     paused: true,

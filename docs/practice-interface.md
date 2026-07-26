@@ -1,9 +1,10 @@
 # Practice interface
 
 The private practice route loads session metadata, analysis, lyrics, and
-available playback assets with the session access token. Audio responses are
-converted to page-local object URLs; the UI provides no download links and
-never exposes the separated vocal stem.
+short-lived playback URLs with the session access token. Each playback URL is
+scoped to one session and asset, HMAC-signed with a five-minute maximum
+lifetime, and supports byte ranges. The UI provides no download links and never
+exposes the separated vocal stem.
 
 The Canvas graph renders a moving ten-second window at the device pixel ratio.
 Its animation loop reads the shared practice clock directly and does not drive

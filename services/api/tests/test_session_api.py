@@ -101,6 +101,22 @@ async def test_audio_upload_validates_content_and_supports_private_ranges(
     assert playback.status_code == 206
     assert playback.content == b"lid a"
     assert playback.headers["content-range"] == "bytes 2-6/11"
+    playback_url_endpoint = f"/api/v1/sessions/{session_id}/assets/{asset_id}/playback-url"
+    assert (await api_client.get(playback_url_endpoint)).status_code == 401
+    signed_url_response = await api_client.get(
+        playback_url_endpoint,
+        headers=auth(token),
+    )
+    assert signed_url_response.status_code == 200
+    signed_url = signed_url_response.json()["url"]
+    signed_playback = await api_client.get(
+        signed_url,
+        headers={"Range": "bytes=0-3"},
+    )
+    assert signed_playback.status_code == 206
+    assert signed_playback.content == b"vali"
+    tampered_url = signed_url.replace("signature=", "signature=0", 1)
+    assert (await api_client.get(tampered_url)).status_code == 404
 
 
 @pytest.mark.anyio

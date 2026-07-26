@@ -83,6 +83,7 @@ interface AudioContextLike {
 
 interface PlaybackElementLike {
   src: string;
+  crossOrigin: string | null;
   currentTime: number;
   readonly duration: number;
   readonly paused: boolean;
@@ -310,6 +311,7 @@ export class AudioSessionController {
         return;
       }
       this.playback = this.environment.createPlaybackElement();
+      this.playback.crossOrigin = "anonymous";
       this.playback.src = this.options.playbackUrl;
       this.playback.addEventListener(
         "ended",

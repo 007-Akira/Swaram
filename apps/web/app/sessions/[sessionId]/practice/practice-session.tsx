@@ -98,7 +98,6 @@ export function PracticeSession({ sessionId }: Props) {
         active = false;
       };
     }
-    const objectUrls: string[] = [];
     let audioController: AudioSessionController | null = null;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     void fetch(`${apiUrl}/api/v1/sessions/${sessionId}`, {
@@ -129,13 +128,12 @@ export function PracticeSession({ sessionId }: Props) {
             Promise.all(
               availableModes.map(async (mode) => {
                 const response = await fetch(
-                  `${apiUrl}/api/v1/sessions/${sessionId}/assets/${mode.assetId}/playback`,
+                  `${apiUrl}/api/v1/sessions/${sessionId}/assets/${mode.assetId}/playback-url`,
                   { headers: { "X-Session-Token": token } },
                 );
                 if (!response.ok) throw new Error("playback unavailable");
-                const objectUrl = URL.createObjectURL(await response.blob());
-                objectUrls.push(objectUrl);
-                return [mode.mode, objectUrl] as const;
+                const payload = (await response.json()) as { url: string };
+                return [mode.mode, payload.url] as const;
               }),
             ),
           ]);
@@ -148,8 +146,6 @@ export function PracticeSession({ sessionId }: Props) {
           lines: PracticeLyricLine[];
         };
         if (!active) {
-          for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
-          objectUrls.length = 0;
           return;
         }
         const sources = Object.fromEntries(modeResponses) as Partial<
@@ -173,7 +169,6 @@ export function PracticeSession({ sessionId }: Props) {
     return () => {
       active = false;
       if (audioController) void audioController.dispose();
-      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
   }, [sessionId]);
 
@@ -384,6 +379,18 @@ export function PracticeSession({ sessionId }: Props) {
                 )
               }
               type="range"
+            />
+          </label>
+          <label className="mt-3 block text-slate-400">
+            റഫറൻസ് വോക്കൽ ശബ്ദനില
+            <input
+              className="ml-3"
+              disabled
+              max="100"
+              min="0"
+              title="സുരക്ഷിതമായ കുറഞ്ഞ-വോക്കൽ മിക്സ് ലഭ്യമല്ല."
+              type="range"
+              value="0"
             />
           </label>
           {analysis && (
