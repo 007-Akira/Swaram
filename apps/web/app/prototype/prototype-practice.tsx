@@ -1,7 +1,11 @@
 "use client";
 
 import type { AnalysisPackageV1 } from "@swaram/contracts";
-import { detectPitchYin } from "@swaram/audio-core";
+import {
+  comparePitchFrames,
+  detectPitchYin,
+  type ToleranceClassification,
+} from "@swaram/audio-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -19,6 +23,8 @@ interface CurrentPitch {
   readonly frequencyHz: number;
   readonly midi: number;
   readonly confidence: number;
+  readonly referenceCents: number | null;
+  readonly classification: ToleranceClassification | null;
 }
 
 const MIDI_MIN = 45;
@@ -53,7 +59,9 @@ function pitchLabel(pitch: CurrentPitch | null): {
   ];
   const note = names[((rounded % 12) + 12) % 12] ?? "—";
   const octave = Math.floor(rounded / 12) - 1;
-  const cents = Math.round((pitch.midi - rounded) * 100);
+  const cents = Math.round(
+    pitch.referenceCents ?? (pitch.midi - rounded) * 100,
+  );
   return {
     note: `${note}${octave}`,
     cents:
@@ -157,6 +165,7 @@ export function PrototypePractice() {
   const [activeLyric, setActiveLyric] = useState(-1);
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const analysisRef = useRef<AnalysisPackageV1 | null>(null);
   const captureRef = useRef<MicrophoneCapture | null>(null);
   const livePointsRef = useRef<LivePoint[]>([]);
   const lastPitchUpdateRef = useRef(0);
@@ -167,6 +176,7 @@ export function PrototypePractice() {
     loadPrototypeData()
       .then((data) => {
         if (!active) return;
+        analysisRef.current = data.analysis;
         setAnalysis(data.analysis);
         setLyrics(data.lyrics);
         setLoadState("ready");
@@ -188,16 +198,44 @@ export function PrototypePractice() {
       const result = detectPitchYin(frame, sampleRate);
       if (!result.voiced || result.frequencyHz === null) return;
       const midi = frequencyToMidi(result.frequencyHz);
+      const timeMs = audioRef.current.currentTime * 1_000;
       livePointsRef.current.push({
-        timeMs: audioRef.current.currentTime * 1_000,
+        timeMs,
         midi,
       });
       if (performance.now() - lastPitchUpdateRef.current >= 150) {
         lastPitchUpdateRef.current = performance.now();
+        const referenceFrames = analysisRef.current?.pitch_frames ?? [];
+        const approximateIndex =
+          analysisRef.current && referenceFrames.length > 1
+            ? Math.round(
+                (timeMs / (analysisRef.current.duration_seconds * 1_000)) *
+                  (referenceFrames.length - 1),
+              )
+            : -1;
+        const referenceFrame =
+          approximateIndex >= 0 ? referenceFrames[approximateIndex] : undefined;
+        const comparison = comparePitchFrames(
+          referenceFrame
+            ? {
+                frequencyHz: referenceFrame.frequency_hz,
+                confidence: referenceFrame.confidence,
+                voiced: referenceFrame.voiced,
+              }
+            : null,
+          {
+            frequencyHz: result.frequencyHz,
+            confidence: result.confidence,
+            voiced: result.voiced,
+          },
+          0.1,
+        );
         setCurrentPitch({
           frequencyHz: result.frequencyHz,
           midi,
           confidence: result.confidence,
+          referenceCents: comparison.valid ? comparison.signedCents : null,
+          classification: comparison.valid ? comparison.classification : null,
         });
       }
     });

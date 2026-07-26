@@ -9,3 +9,8 @@ detection near 80 Hz. Smaller frames reduce algorithmic latency but cannot
 represent low fundamentals; larger frames improve low-note resolution at the
 cost of latency and CPU work. The AudioWorklet integration should accumulate
 overlapping frames and timestamp them against one monotonic practice clock.
+
+Frame comparison returns signed and absolute cents error. Positive signed cents
+means the singer is sharp; negative means flat. Valid voiced frames are grouped
+as excellent (≤25 cents), good (≤50), close (≤80), or off-pitch (>80). Missing,
+unvoiced, low-confidence, and non-positive-frequency frames are never scored.
