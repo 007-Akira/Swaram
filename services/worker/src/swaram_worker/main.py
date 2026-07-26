@@ -11,7 +11,7 @@ from threading import Event
 from sqlalchemy import Engine, create_engine, text
 
 from swaram_worker.analysis_pipeline import AnalysisPipeline
-from swaram_worker.audio_normalization import FFmpegNormalizer
+from swaram_worker.audio_normalization import FFmpegLimits, FFmpegNormalizer
 from swaram_worker.job_queue import ClaimedJob, PostgreSQLJobQueue
 from swaram_worker.private_storage import WorkerPrivateStorage
 from swaram_worker.settings import WorkerSettings
@@ -89,13 +89,23 @@ def main(argv: Sequence[str] | None = None) -> None:
             engine.dispose()
         return
     worker_id = f"{socket.gethostname()}-{id(engine)}"
-    queue = PostgreSQLJobQueue(engine, worker_id)
+    queue = PostgreSQLJobQueue(engine, worker_id, settings.job_lease_seconds)
     pipeline = AnalysisPipeline(
         engine,
         WorkerPrivateStorage(settings.private_data_root),
         queue,
-        FFmpegNormalizer(),
-        HTDemucsSeparator(device=settings.stem_device),
+        FFmpegNormalizer(
+            limits=FFmpegLimits(
+                maximum_input_bytes=settings.audio_max_bytes,
+                maximum_duration_seconds=settings.audio_max_duration_seconds,
+                command_timeout_seconds=settings.ffmpeg_timeout_seconds,
+                maximum_decoded_bytes=settings.decoded_audio_max_bytes,
+            )
+        ),
+        HTDemucsSeparator(
+            device=settings.stem_device,
+            command_timeout_seconds=settings.demucs_timeout_seconds,
+        ),
         settings.worker_temp_root,
     )
     worker = Worker(engine, queue=queue, processor=pipeline.process)

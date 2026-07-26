@@ -53,6 +53,8 @@ The hardened non-root CPU/GPU container profiles and orchestration health check
 are documented in [the worker deployment guide](docs/worker-deployment.md).
 Production Compose and non-container VPS procedures are documented in
 [the deployment guide](docs/deployment.md).
+Validated environment variables, job lease semantics, migrations, and storage
+lifecycle are documented in [the configuration guide](docs/configuration.md).
 
 ## Private session API
 
