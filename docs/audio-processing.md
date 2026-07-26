@@ -18,7 +18,8 @@ stderr is bounded and remains server-side.
 ## Pretrained stem separation
 
 Install the optional `services/worker[audio-ml]` dependencies to use pinned
-Demucs 4.0.1, PyTorch 2.7.1, and the pretrained `htdemucs` model. The worker
+Demucs 4.0.1, PyTorch/Torchaudio 2.9.1, TorchCodec 0.9.1, and the pretrained
+`htdemucs` model. The worker
 defaults to CPU; `auto`, `cuda`, and `mps` are explicit deployment options.
 Inference creates private `vocals.wav` and `instrumental.wav` derivatives in
 the job workspace, records the model identifier, and removes Demucs' temporary

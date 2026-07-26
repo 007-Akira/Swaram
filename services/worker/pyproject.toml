@@ -20,7 +20,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["mypy>=1.15,<2", "pytest>=8.3,<9", "ruff>=0.9,<1"]
-audio-ml = ["demucs==4.0.1", "torch==2.7.1"]
+audio-ml = [
+  "demucs==4.0.1",
+  "torch==2.9.1",
+  "torchaudio==2.9.1",
+  "torchcodec==0.9.1",
+]
 
 [project.scripts]
 swaram-worker = "swaram_worker.main:main"

@@ -13,7 +13,7 @@ from swaram_worker.audio_normalization import MAX_ERROR_DETAIL, AudioProcessingE
 
 MODEL_ID = "htdemucs"
 DEMUCS_VERSION = "4.0.1"
-TORCH_VERSION = "2.7.1"
+TORCH_VERSION = "2.9.1"
 Device = Literal["auto", "cpu", "cuda", "mps"]
 ProgressCallback = Callable[[str, int], None]
 
