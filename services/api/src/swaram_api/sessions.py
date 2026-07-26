@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 import tempfile
 import unicodedata
@@ -16,12 +17,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
+from swaram_contracts import AnalysisPackageV1
 
 from swaram_api.audio_validation import AudioValidationError, inspect_audio
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, ErrorResponse
 from swaram_api.lyric_parser import LyricParseError, decode_lyrics, parse_lyrics
 from swaram_api.models import (
+    AnalysisPackage,
     AssetKind,
     LyricDocument,
     LyricLine,
@@ -489,6 +492,45 @@ async def playback_asset(
         media_type=asset.media_type,
         headers=headers,
     )
+
+
+@router.get(
+    "/sessions/{session_id}/analysis",
+    response_model=AnalysisPackageV1,
+)
+async def session_analysis(
+    practice_session: Annotated[PracticeSession, Depends(require_session)],
+    db: Annotated[Session, Depends(get_db_session)],
+    storage: Annotated[PrivateStorage, Depends(get_storage)],
+) -> AnalysisPackageV1:
+    package = db.scalar(
+        select(AnalysisPackage)
+        .where(AnalysisPackage.session_id == practice_session.id)
+        .order_by(AnalysisPackage.created_at.desc())
+        .limit(1)
+    )
+    if package is None:
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND,
+            "analysis_not_found",
+            "Analysis is not available",
+        )
+    try:
+        with storage.open(practice_session.id, package.object_key) as source:
+            payload = json.load(source)
+        return AnalysisPackageV1.model_validate(payload)
+    except ObjectNotFoundError as error:
+        raise ApiError(
+            status.HTTP_404_NOT_FOUND,
+            "analysis_not_found",
+            "Analysis is not available",
+        ) from error
+    except (json.JSONDecodeError, ValueError) as error:
+        raise ApiError(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "analysis_invalid",
+            "Stored analysis is invalid",
+        ) from error
 
 
 @router.get(

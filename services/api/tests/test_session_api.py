@@ -288,3 +288,15 @@ async def test_readiness_endpoint_is_private_and_actionable(
         issue["code"] for issue in issues
     }
     assert all(issue["action"] for issue in issues)
+
+
+@pytest.mark.anyio
+async def test_analysis_endpoint_is_private_and_reports_missing(
+    api_client: httpx.AsyncClient,
+) -> None:
+    session_id, token = await create_private_session(api_client)
+    endpoint = f"/api/v1/sessions/{session_id}/analysis"
+    assert (await api_client.get(endpoint)).status_code == 401
+    response = await api_client.get(endpoint, headers=auth(token))
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "analysis_not_found"

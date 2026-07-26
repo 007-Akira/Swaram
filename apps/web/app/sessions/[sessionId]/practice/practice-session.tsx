@@ -1,13 +1,19 @@
 "use client";
 
 import type { LivePitchFrame } from "@swaram/audio-core";
-import { useEffect, useRef, useState } from "react";
+import {
+  AnalysisPackageV1Schema,
+  type AnalysisPackageV1,
+} from "@swaram/contracts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AudioSessionController,
   type AudioSessionState,
 } from "../../../../lib/audio-session";
 import { HeadphoneCalibration } from "./headphone-calibration";
+import { PitchCanvas } from "./pitch-canvas";
+import type { ContourPoint } from "./pitch-renderer";
 
 interface Props {
   readonly sessionId: string;
@@ -32,8 +38,29 @@ export function PracticeSession({ sessionId }: Props) {
   const [ready, setReady] = useState(false);
   const [songTimeMs, setSongTimeMs] = useState(0);
   const [pitch, setPitch] = useState<LivePitchFrame | null>(null);
+  const [analysis, setAnalysis] = useState<AnalysisPackageV1 | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const lastPitchRender = useRef(0);
+  const lastTimeRender = useRef(0);
+  const livePoints = useRef<ContourPoint[]>([]);
+  const referencePoints = useMemo(
+    () =>
+      analysis?.pitch_frames.map((frame) => ({
+        timeMs: frame.time_ms,
+        midi: frame.midi,
+        voiced: frame.voiced,
+      })) ?? [],
+    [analysis],
+  );
+  const getLivePoints = useCallback(() => livePoints.current, []);
+  const getReferencePoints = useCallback(
+    () => referencePoints,
+    [referencePoints],
+  );
+  const getCurrentTimeMs = useCallback(
+    () => controller?.getPracticeTime().comparisonTimeMs ?? 0,
+    [controller],
+  );
 
   useEffect(() => {
     let active = true;
@@ -65,12 +92,21 @@ export function PracticeSession({ sessionId }: Props) {
           assets.find(({ kind }) => kind === "instrumental") ??
           assets.find(({ kind }) => kind === "original_audio");
         if (!asset) throw new Error("playback unavailable");
-        const response = await fetch(
-          `${apiUrl}/api/v1/sessions/${sessionId}/assets/${asset.id}/playback`,
-          { headers: { "X-Session-Token": token } },
+        const [playbackResponse, analysisResponse] = await Promise.all([
+          fetch(
+            `${apiUrl}/api/v1/sessions/${sessionId}/assets/${asset.id}/playback`,
+            { headers: { "X-Session-Token": token } },
+          ),
+          fetch(`${apiUrl}/api/v1/sessions/${sessionId}/analysis`, {
+            headers: { "X-Session-Token": token },
+          }),
+        ]);
+        if (!playbackResponse.ok) throw new Error("playback unavailable");
+        if (!analysisResponse.ok) throw new Error("analysis unavailable");
+        const parsedAnalysis = AnalysisPackageV1Schema.parse(
+          await analysisResponse.json(),
         );
-        if (!response.ok) throw new Error("playback unavailable");
-        objectUrl = URL.createObjectURL(await response.blob());
+        objectUrl = URL.createObjectURL(await playbackResponse.blob());
         if (!active) {
           URL.revokeObjectURL(objectUrl);
           objectUrl = null;
@@ -79,6 +115,7 @@ export function PracticeSession({ sessionId }: Props) {
         audioController = new AudioSessionController({
           playbackUrl: objectUrl,
         });
+        setAnalysis(parsedAnalysis);
         setController(audioController);
       })
       .catch(() => {
@@ -100,6 +137,21 @@ export function PracticeSession({ sessionId }: Props) {
       }
     });
     const unsubscribePitch = controller.onPitchFrame((frame) => {
+      if (
+        controller.getState().status === "playing" &&
+        frame.voiced &&
+        frame.midi !== null
+      ) {
+        const timeMs = controller.getPracticeTime().comparisonTimeMs;
+        livePoints.current.push({
+          timeMs,
+          midi: frame.midi,
+          voiced: true,
+        });
+        if (livePoints.current.length > 3_000) {
+          livePoints.current.splice(0, livePoints.current.length - 3_000);
+        }
+      }
       if (performance.now() - lastPitchRender.current >= 100) {
         lastPitchRender.current = performance.now();
         setPitch(frame);
@@ -116,7 +168,10 @@ export function PracticeSession({ sessionId }: Props) {
     let animationFrame = 0;
     const update = () => {
       try {
-        setSongTimeMs(controller.getPracticeTime().comparisonTimeMs);
+        if (performance.now() - lastTimeRender.current >= 250) {
+          lastTimeRender.current = performance.now();
+          setSongTimeMs(controller.getPracticeTime().comparisonTimeMs);
+        }
       } catch {
         return;
       }
@@ -153,6 +208,17 @@ export function PracticeSession({ sessionId }: Props) {
           <p className="mt-2">
             ലേറ്റൻസി തിരുത്തൽ: {sessionState.latencyOffsetMs} ms
           </p>
+          {analysis && (
+            <div className="mt-5">
+              <PitchCanvas
+                getCurrentTimeMs={getCurrentTimeMs}
+                getLive={getLivePoints}
+                getReference={getReferencePoints}
+                showNoteLanes
+                toleranceCents={50}
+              />
+            </div>
+          )}
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               disabled={!sessionState.canPlay}
