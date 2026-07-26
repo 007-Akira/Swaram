@@ -1,3 +1,11 @@
+import {
+  assessPlaybackLeakage,
+  estimateLatencyOffsetMs,
+  generateCalibrationChirp,
+  nudgeLatencyOffsetMs,
+  type LeakageCalibrationResult,
+} from "@swaram/audio-core";
+
 export type AudioSessionStatus =
   | "idle"
   | "requesting_permission"
@@ -14,6 +22,7 @@ export interface AudioSessionState {
   readonly canPlay: boolean;
   readonly canPause: boolean;
   readonly microphoneActive: boolean;
+  readonly latencyOffsetMs: number;
   readonly error: string | null;
 }
 
@@ -50,6 +59,8 @@ interface BufferSourceLike extends AudioNodeLike {
 
 interface AudioContextLike {
   readonly sampleRate: number;
+  readonly baseLatency?: number;
+  readonly outputLatency?: number;
   readonly destination: AudioNodeLike;
   readonly audioWorklet: { addModule(url: string): Promise<void> };
   createMediaElementSource(element: PlaybackElementLike): AudioNodeLike;
@@ -110,6 +121,7 @@ const LEGAL_TRANSITIONS: Readonly<
 function deriveState(
   status: AudioSessionStatus,
   error: string | null = null,
+  latencyOffsetMs = 0,
 ): AudioSessionState {
   return {
     status,
@@ -119,6 +131,7 @@ function deriveState(
     microphoneActive: ["calibrating", "ready", "playing", "paused"].includes(
       status,
     ),
+    latencyOffsetMs,
     error,
   };
 }
@@ -178,6 +191,7 @@ export class AudioSessionController {
   private playback: PlaybackElementLike | null = null;
   private disposed = false;
   private lifecycleGeneration = 0;
+  private latencyOffsetMs = 0;
 
   constructor(
     private readonly options: AudioSessionOptions,
@@ -267,6 +281,23 @@ export class AudioSessionController {
 
   completeCalibration(): void {
     this.transition("ready");
+  }
+
+  estimateLatency(detectedRoundTripMs?: number): number {
+    if (!this.context) throw new Error("Audio context is unavailable");
+    this.latencyOffsetMs = estimateLatencyOffsetMs({
+      baseLatencySeconds: this.context.baseLatency,
+      outputLatencySeconds: this.context.outputLatency,
+      detectedRoundTripMs,
+    });
+    this.publishCurrentState();
+    return this.latencyOffsetMs;
+  }
+
+  nudgeLatency(nudgeMs: number): number {
+    this.latencyOffsetMs = nudgeLatencyOffsetMs(this.latencyOffsetMs, nudgeMs);
+    this.publishCurrentState();
+    return this.latencyOffsetMs;
   }
 
   async calibrateLeakage(
@@ -373,7 +404,12 @@ export class AudioSessionController {
         `Illegal audio session transition: ${this.state.status} -> ${status}`,
       );
     }
-    this.state = deriveState(status, error);
+    this.state = deriveState(status, error, this.latencyOffsetMs);
+    this.publishCurrentState();
+  }
+
+  private publishCurrentState(): void {
+    this.state = { ...this.state, latencyOffsetMs: this.latencyOffsetMs };
     for (const listener of this.stateListeners) listener(this.state);
   }
 
@@ -404,8 +440,3 @@ export class AudioSessionController {
     this.playback = null;
   }
 }
-import {
-  assessPlaybackLeakage,
-  generateCalibrationChirp,
-  type LeakageCalibrationResult,
-} from "@swaram/audio-core";

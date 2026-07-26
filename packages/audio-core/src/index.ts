@@ -15,4 +15,12 @@ export {
   type LeakageCalibrationResult,
   type LeakageLevel,
 } from "./leakage-calibration";
+export {
+  applyLatencyOffset,
+  assertUncorrectedSongTime,
+  estimateLatencyOffsetMs,
+  nudgeLatencyOffsetMs,
+  type CorrectedSongTime,
+  type DeviceLatencyEvidence,
+} from "./latency";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";

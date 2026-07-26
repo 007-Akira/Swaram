@@ -18,6 +18,8 @@ function environment() {
   const worklet = { port, connect: vi.fn(), disconnect: vi.fn() };
   const context = {
     sampleRate: 48_000,
+    baseLatency: 0.01,
+    outputLatency: 0.02,
     destination,
     audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) },
     createMediaElementSource: vi.fn(() => playbackSource),
@@ -148,6 +150,18 @@ describe("AudioSessionController", () => {
     expect(result.level).toBe("inconclusive");
     expect(controller.getState().status).toBe("ready");
     expect(browser.context.createBufferSource).toHaveBeenCalledOnce();
+  });
+
+  it("stores browser latency and allows a guided manual nudge", async () => {
+    const browser = environment();
+    const controller = new AudioSessionController(
+      { playbackUrl: "private:instrumental" },
+      browser.value,
+    );
+    await controller.requestPermission();
+    expect(controller.estimateLatency()).toBe(30);
+    expect(controller.nudgeLatency(15)).toBe(45);
+    expect(controller.getState().latencyOffsetMs).toBe(45);
   });
 
   it("restarts and resumes without creating duplicate audio nodes", async () => {

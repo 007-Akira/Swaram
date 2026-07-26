@@ -37,3 +37,15 @@ This estimates playback leakage; it does not detect whether headphones are
 physically connected. High correlation blocks continuation by default.
 Moderate leakage produces a warning, and silence is reported as inconclusive.
 An explicit UI checkbox can override a high-leakage result for testing only.
+
+## Latency estimate
+
+The audio session stores one latency offset in milliseconds. It starts with the
+browser's `AudioContext.baseLatency` and `outputLatency` where available. A
+measured chirp return can provide a round-trip estimate; the comparison offset
+uses half that value when it exceeds the browser estimate. A guided test phrase
+may nudge the result by at most 250 ms per adjustment.
+
+These properties vary by browser, operating system, and output device, and some
+browsers report neither. The corrected-time API returns a branded record and
+rejects already-corrected input, preventing subtraction of the offset twice.
