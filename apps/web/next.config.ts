@@ -9,6 +9,7 @@ const scriptPolicy =
     : "script-src 'self' 'unsafe-inline'";
 
 const config: NextConfig = {
+  output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
   async headers() {

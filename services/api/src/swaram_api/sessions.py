@@ -223,12 +223,7 @@ async def upload_audio(
         temporary_path = Path(directory) / "upload"
         _copy_bounded(audio, temporary_path, settings.upload_max_bytes)
         try:
-            metadata = inspect_audio(
-                temporary_path,
-                settings.ffprobe_binary,
-                settings.audio_max_duration_seconds,
-                settings.decoded_audio_max_bytes,
-            )
+            metadata = inspect_audio(temporary_path)
             validate_upload_identity(
                 safe_filename,
                 audio.content_type or "",

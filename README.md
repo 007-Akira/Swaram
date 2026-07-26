@@ -51,18 +51,19 @@ The worker normally polls continuously. Verify one PostgreSQL-backed idle cycle
 and exit cleanly with `pnpm worker:once`.
 The hardened non-root CPU/GPU container profiles and orchestration health check
 are documented in [the worker deployment guide](docs/worker-deployment.md).
+Production Compose and non-container VPS procedures are documented in
+[the deployment guide](docs/deployment.md).
 
 ## Private session API
 
 `POST /api/v1/sessions` creates an expiring private session and returns its
 access token once. Send that secret as `X-Session-Token` for every session,
 upload, playback, and deletion request. The database stores only its SHA-256
-hash. Audio uploads are limited by `UPLOAD_MAX_BYTES` and
-`AUDIO_MAX_DURATION_SECONDS`; decoded PCM is limited by
-`DECODED_AUDIO_MAX_BYTES`, and each session is limited by
-`MAX_AUDIO_ASSETS_PER_SESSION`. FFprobe verifies actual decodability and checks
-that detected MP3, WAV, M4A, or FLAC content agrees with the declared MIME type
-and extension. TXT/LRC/SRT lyrics must be UTF-8 and
+hash. Audio uploads are limited by `UPLOAD_MAX_BYTES`, and each session is
+limited by `MAX_AUDIO_ASSETS_PER_SESSION`. The API checks MP3, WAV, M4A, or
+FLAC signatures against the declared MIME type and extension. The isolated
+worker then performs authoritative FFprobe decoding, duration, and expanded-PCM
+limit checks. TXT/LRC/SRT lyrics must be UTF-8 and
 are normalized to Unicode NFC.
 
 Objects are stored under `PRIVATE_DATA_ROOT/private` with random keys and

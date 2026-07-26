@@ -20,13 +20,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     private_data_root: Path = Path("data")
     upload_max_bytes: int = Field(default=100 * 1024 * 1024, gt=0)
-    audio_max_duration_seconds: int = Field(default=15 * 60, gt=0)
-    decoded_audio_max_bytes: int = Field(default=200 * 1024 * 1024, gt=0)
     max_audio_assets_per_session: int = Field(default=3, gt=0)
     rate_limit_requests: int = Field(default=120, gt=0)
     rate_limit_window_seconds: int = Field(default=60, gt=0)
     session_retention_hours: int = Field(default=24, gt=0)
-    ffprobe_binary: str = "ffprobe"
 
     @model_validator(mode="after")
     def reject_development_database_in_production(self) -> "Settings":
