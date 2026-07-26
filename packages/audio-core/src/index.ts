@@ -5,4 +5,14 @@ export {
   type PitchObservation,
   type ToleranceClassification,
 } from "./comparison";
+export {
+  assessPlaybackLeakage,
+  DEFAULT_LEAKAGE_CONFIG,
+  generateCalibrationChirp,
+  measurePeakCorrelation,
+  measureRms,
+  type LeakageCalibrationConfig,
+  type LeakageCalibrationResult,
+  type LeakageLevel,
+} from "./leakage-calibration";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";

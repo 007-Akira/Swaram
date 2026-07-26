@@ -25,3 +25,15 @@ all resources. React subscribes only to the low-frequency derived session
 state. Raw worklet frames use a separate callback and must not be copied into a
 React store. Route cleanup calls `dispose()`. Hiding the page stops playback,
 closes the context, disconnects nodes, and stops every microphone track.
+
+## Headphone and leakage calibration
+
+Before practice, the controller generates a short 500–2,000 Hz chirp, plays it
+through the owned output path, and compares it with microphone frames using RMS
+and normalized cross-correlation. Correlation uses a reduced-rate analysis copy
+to keep calibration bounded on mobile devices.
+
+This estimates playback leakage; it does not detect whether headphones are
+physically connected. High correlation blocks continuation by default.
+Moderate leakage produces a warning, and silence is reported as inconclusive.
+An explicit UI checkbox can override a high-leakage result for testing only.

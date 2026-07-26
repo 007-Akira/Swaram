@@ -38,12 +38,28 @@ interface WorkletNodeLike extends AudioNodeLike {
   readonly port: PortLike;
 }
 
+interface AudioBufferLike {
+  copyToChannel(source: Float32Array, channelNumber: number): void;
+}
+
+interface BufferSourceLike extends AudioNodeLike {
+  buffer: AudioBufferLike | null;
+  onended: ((event: Event) => void) | null;
+  start(): void;
+}
+
 interface AudioContextLike {
   readonly sampleRate: number;
   readonly destination: AudioNodeLike;
   readonly audioWorklet: { addModule(url: string): Promise<void> };
   createMediaElementSource(element: PlaybackElementLike): AudioNodeLike;
   createMediaStreamSource(stream: StreamLike): AudioNodeLike;
+  createBuffer(
+    channels: number,
+    length: number,
+    sampleRate: number,
+  ): AudioBufferLike;
+  createBufferSource(): BufferSourceLike;
   close(): Promise<void>;
 }
 
@@ -253,6 +269,52 @@ export class AudioSessionController {
     this.transition("ready");
   }
 
+  async calibrateLeakage(
+    allowTestingOverride = false,
+  ): Promise<LeakageCalibrationResult> {
+    if (this.state.status !== "calibrating" || !this.context) {
+      throw new Error(`Cannot calibrate audio from ${this.state.status}`);
+    }
+    const reference = generateCalibrationChirp(this.context.sampleRate);
+    const capturedFrames: Float32Array[] = [];
+    const unsubscribe = this.onFrame((frame) =>
+      capturedFrames.push(frame.slice()),
+    );
+    const buffer = this.context.createBuffer(
+      1,
+      reference.length,
+      this.context.sampleRate,
+    );
+    buffer.copyToChannel(reference, 0);
+    const source = this.context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.context.destination);
+    await new Promise<void>((resolve) => {
+      source.onended = () => resolve();
+      source.start();
+    });
+    unsubscribe();
+    source.disconnect();
+    const capturedLength = capturedFrames.reduce(
+      (total, frame) => total + frame.length,
+      0,
+    );
+    const captured = new Float32Array(capturedLength);
+    let offset = 0;
+    for (const frame of capturedFrames) {
+      captured.set(frame, offset);
+      offset += frame.length;
+    }
+    const result = assessPlaybackLeakage(
+      reference,
+      captured,
+      this.context.sampleRate,
+      allowTestingOverride,
+    );
+    if (result.canContinue) this.completeCalibration();
+    return result;
+  }
+
   async play(): Promise<void> {
     if (this.state.status !== "ready" && this.state.status !== "paused") {
       throw new Error(`Cannot play audio from ${this.state.status}`);
@@ -342,3 +404,8 @@ export class AudioSessionController {
     this.playback = null;
   }
 }
+import {
+  assessPlaybackLeakage,
+  generateCalibrationChirp,
+  type LeakageCalibrationResult,
+} from "@swaram/audio-core";

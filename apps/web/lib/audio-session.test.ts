@@ -22,6 +22,19 @@ function environment() {
     audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) },
     createMediaElementSource: vi.fn(() => playbackSource),
     createMediaStreamSource: vi.fn(() => microphoneSource),
+    createBuffer: vi.fn(() => ({ copyToChannel: vi.fn() })),
+    createBufferSource: vi.fn(() => {
+      const source = {
+        buffer: null,
+        onended: null as ((event: Event) => void) | null,
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        start: vi.fn(() =>
+          queueMicrotask(() => source.onended?.(new Event("ended"))),
+        ),
+      };
+      return source;
+    }),
     close: vi.fn().mockResolvedValue(undefined),
   };
   const playback = {
@@ -55,6 +68,7 @@ function environment() {
     worklet,
     context,
     playback,
+    port,
     setHidden(value: boolean) {
       hidden = value;
     },
@@ -115,6 +129,25 @@ describe("AudioSessionController", () => {
       "Illegal audio session transition",
     );
     await expect(controller.play()).rejects.toThrow("Cannot play");
+  });
+
+  it("runs an original calibration signal before becoming ready", async () => {
+    const browser = environment();
+    const controller = new AudioSessionController(
+      { playbackUrl: "private:instrumental" },
+      browser.value,
+    );
+    await controller.requestPermission();
+    const calibration = controller.calibrateLeakage();
+    browser.port.onmessage?.(
+      new MessageEvent("message", {
+        data: new Float32Array(4_096).buffer,
+      }),
+    );
+    const result = await calibration;
+    expect(result.level).toBe("inconclusive");
+    expect(controller.getState().status).toBe("ready");
+    expect(browser.context.createBufferSource).toHaveBeenCalledOnce();
   });
 
   it("restarts and resumes without creating duplicate audio nodes", async () => {
