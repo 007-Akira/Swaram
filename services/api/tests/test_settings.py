@@ -18,6 +18,7 @@ def test_production_requires_absolute_storage_and_exact_https_cors() -> None:
     production = {
         "app_env": "production",
         "database_url": "postgresql+psycopg://user:secret@db/swaram",
+        "operations_token": "o" * 32,
         "_env_file": None,
     }
     with pytest.raises(ValidationError, match="PRIVATE_DATA_ROOT"):

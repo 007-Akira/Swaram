@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEVELOPMENT_DATABASE_URL = "postgresql+psycopg://swaram:swaram@localhost:5432/swaram"
@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     rate_limit_requests: int = Field(default=120, gt=0, le=10_000)
     rate_limit_window_seconds: int = Field(default=60, gt=0, le=3_600)
     session_retention_hours: int = Field(default=24, gt=0, le=168)
+    operations_token: SecretStr | None = None
 
     @model_validator(mode="after")
     def reject_unsafe_production_settings(self) -> "Settings":
@@ -39,6 +40,8 @@ class Settings(BaseSettings):
             not origin.startswith("https://") or "*" in origin for origin in self.cors_origins
         ):
             raise ValueError("CORS_ORIGINS must contain exact HTTPS origins in production")
+        if self.operations_token is None or len(self.operations_token.get_secret_value()) < 32:
+            raise ValueError("OPERATIONS_TOKEN must contain at least 32 characters in production")
         return self
 
 

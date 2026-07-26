@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+import logging
 import threading
 import time
+import uuid
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
 
@@ -16,6 +19,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
 }
+request_logger = logging.getLogger("swaram.api")
 
 
 class InMemoryRateLimitMiddleware(BaseHTTPMiddleware):
@@ -60,4 +64,49 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers.setdefault(name, value)
         if request.url.path.startswith("/api/"):
             response.headers.setdefault("Cache-Control", "no-store")
+        return response
+
+
+class RequestObservabilityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        supplied = request.headers.get("x-request-id", "")
+        request_id = (
+            supplied if 0 < len(supplied) <= 128 and supplied.isascii() else uuid.uuid4().hex
+        )
+        request.state.request_id = request_id
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            request_logger.exception(
+                json.dumps(
+                    {
+                        "event": "api_request_failed",
+                        "method": request.method,
+                        "path": request.url.path,
+                        "request_id": request_id,
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise
+        duration_ms = round((time.perf_counter() - started) * 1000, 2)
+        response.headers["X-Request-ID"] = request_id
+        request_logger.info(
+            json.dumps(
+                {
+                    "duration_ms": duration_ms,
+                    "event": "api_request_complete",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "request_id": request_id,
+                    "status": response.status_code,
+                },
+                sort_keys=True,
+            )
+        )
         return response

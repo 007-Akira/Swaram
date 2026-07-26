@@ -17,6 +17,7 @@ wildcard CORS origins.
 | `RATE_LIMIT_REQUESTS`          | 120                   | Per-process API requests per window             |
 | `RATE_LIMIT_WINDOW_SECONDS`    | 60                    | Local limiter window                            |
 | `SESSION_RETENTION_HOURS`      | 24                    | Automatic expiry, maximum 168 hours             |
+| `OPERATIONS_TOKEN`             | none                  | 32+ random characters for `/ops/metrics`        |
 
 The reverse proxy must independently enforce TLS, body size, and a distributed
 rate limit. The application limiter is not shared between replicas.

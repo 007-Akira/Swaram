@@ -11,7 +11,12 @@ from swaram_api.attempts import router as attempts_router
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, api_error_handler
 from swaram_api.jobs import router as jobs_router
-from swaram_api.security import InMemoryRateLimitMiddleware, SecurityHeadersMiddleware
+from swaram_api.operations import router as operations_router
+from swaram_api.security import (
+    InMemoryRateLimitMiddleware,
+    RequestObservabilityMiddleware,
+    SecurityHeadersMiddleware,
+)
 from swaram_api.sessions import router as sessions_router
 from swaram_api.settings import Settings, get_settings
 
@@ -23,10 +28,12 @@ class HealthResponse(BaseModel):
 def create_app(settings: Settings | None = None) -> FastAPI:
     active_settings = settings or get_settings()
     application = FastAPI(title="Swaram API", version="0.0.0")
+    application.state.settings = active_settings
     application.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
     application.include_router(sessions_router)
     application.include_router(jobs_router)
     application.include_router(attempts_router)
+    application.include_router(operations_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=active_settings.cors_origins,
@@ -35,6 +42,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
     application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(RequestObservabilityMiddleware)
     application.add_middleware(
         InMemoryRateLimitMiddleware,
         requests=active_settings.rate_limit_requests,

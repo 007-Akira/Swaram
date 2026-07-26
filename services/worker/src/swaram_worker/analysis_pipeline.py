@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import logging
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -28,6 +30,10 @@ from swaram_worker.timing_analysis import TimingMetadata, analyze_timing
 
 logger = logging.getLogger("swaram.analysis")
 PIPELINE_VERSION = ANALYSIS_VERSION
+
+
+def log_event(event: str, **fields: object) -> None:
+    logger.info(json.dumps({"event": event, **fields}, sort_keys=True, default=str))
 
 
 @dataclass(frozen=True)
@@ -222,12 +228,29 @@ class AnalysisPipeline:
 
     def process(self, job: ClaimedJob) -> UUID | None:
         stored_derivatives: list[StoredDerivative] = []
+        job_started = time.perf_counter()
+        stage_started = job_started
+
+        def report_progress(stage: str, percent: int) -> None:
+            nonlocal stage_started
+            now = time.perf_counter()
+            log_event(
+                "job_stage",
+                attempt=job.attempt_count,
+                elapsed_ms=round((now - stage_started) * 1000, 2),
+                job_id=job.id,
+                percent=percent,
+                stage=stage,
+            )
+            stage_started = now
+            self._progress(job, stage, percent)
 
         def remove_partial_outputs() -> None:
             for output in stored_derivatives:
                 self._storage.delete(job.session_id, output.object_key)
 
         try:
+            log_event("job_started", attempt=job.attempt_count, job_id=job.id)
             input_data = self._load_input(job)
             existing = self._existing_package(job)
             if existing is not None:
@@ -235,25 +258,25 @@ class AnalysisPipeline:
                 return existing
             source = self._storage.path_for(job.session_id, input_data.object_key)
             with IsolatedAudioWorkspace(self._workspace_root) as workspace:
-                self._progress(job, "normalizing", 10)
+                report_progress("normalizing", 10)
                 normalized = self._normalizer.normalize(source, workspace.path)
                 stems = self._separator.separate(
                     normalized.playback_wav,
                     workspace.path,
-                    lambda stage, percent: self._progress(job, stage, percent),
+                    report_progress,
                 )
-                self._progress(job, "extracting_contour", 60)
+                report_progress("extracting_contour", 60)
                 contour, duration = extract_contour(
                     stems.vocals_wav, ContourConfig(confidence_threshold=0.1)
                 )
-                self._progress(job, "analyzing_timing", 75)
+                report_progress("analyzing_timing", 75)
                 timing = analyze_timing(normalized.analysis_wav)
                 package = self._build_package(
                     job, input_data, contour, duration, timing, stems.model_id
                 )
                 package_path = workspace.path / "analysis-package-v1.json"
                 package_path.write_text(package.model_dump_json(), encoding="utf-8")
-                self._progress(job, "storing_results", 90)
+                report_progress("storing_results", 90)
                 normalized_stored = self._storage.store_file(
                     job.session_id, normalized.playback_wav
                 )
@@ -272,9 +295,23 @@ class AnalysisPipeline:
                     instrumental=instrumental_stored,
                     analysis=analysis_stored,
                 )
-                return self._persist(job, input_data, stored_outputs)
+                package_id = self._persist(job, input_data, stored_outputs)
+                log_event(
+                    "job_succeeded",
+                    attempt=job.attempt_count,
+                    duration_ms=round((time.perf_counter() - job_started) * 1000, 2),
+                    job_id=job.id,
+                )
+                return package_id
         except AudioProcessingError as error:
-            logger.exception("analysis job failed job_id=%s code=%s", job.id, error.code)
+            log_event(
+                "job_failed",
+                attempt=job.attempt_count,
+                code=error.code,
+                duration_ms=round((time.perf_counter() - job_started) * 1000, 2),
+                job_id=job.id,
+                transient=error.transient,
+            )
             remove_partial_outputs()
             if error.transient and job.attempt_count < 3:
                 self._queue.retry(job.id, timedelta(seconds=30 * job.attempt_count))
@@ -282,7 +319,18 @@ class AnalysisPipeline:
                 self._queue.fail(job.id, error.code)
             return None
         except Exception:
-            logger.exception("analysis job failed unexpectedly job_id=%s", job.id)
+            logger.exception(
+                json.dumps(
+                    {
+                        "attempt": job.attempt_count,
+                        "code": "internal_processing_error",
+                        "duration_ms": round((time.perf_counter() - job_started) * 1000, 2),
+                        "event": "job_failed",
+                        "job_id": str(job.id),
+                    },
+                    sort_keys=True,
+                )
+            )
             remove_partial_outputs()
             self._queue.fail(job.id, "internal_processing_error")
             return None

@@ -9,6 +9,7 @@ class ErrorBody(BaseModel):
     code: str
     message: str
     details: dict[str, Any] | None = None
+    request_id: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -28,5 +29,9 @@ class ApiError(Exception):
         super().__init__(message)
 
 
-async def api_error_handler(_request: Request, error: ApiError) -> JSONResponse:
-    return JSONResponse(status_code=error.status_code, content=error.body.model_dump())
+async def api_error_handler(request: Request, error: ApiError) -> JSONResponse:
+    request_id = getattr(request.state, "request_id", None)
+    body = error.body.model_copy(
+        update={"error": error.body.error.model_copy(update={"request_id": request_id})}
+    )
+    return JSONResponse(status_code=error.status_code, content=body.model_dump())

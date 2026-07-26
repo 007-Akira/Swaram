@@ -54,6 +54,7 @@ services:
     environment:
       <<: *python-env
       CORS_ORIGINS: '["https://${SWARAM_DOMAIN:?set SWARAM_DOMAIN}"]'
+      OPERATIONS_TOKEN: ${OPERATIONS_TOKEN:?set OPERATIONS_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy

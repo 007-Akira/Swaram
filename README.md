@@ -55,6 +55,8 @@ Production Compose and non-container VPS procedures are documented in
 [the deployment guide](docs/deployment.md).
 Validated environment variables, job lease semantics, migrations, and storage
 lifecycle are documented in [the configuration guide](docs/configuration.md).
+Privacy-safe monitoring and incident procedures are documented in
+[the operations runbook](docs/operations-runbook.md).
 
 ## Private session API
 
