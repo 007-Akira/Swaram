@@ -114,6 +114,8 @@ Authorized WAV reference contour generation is documented in
 [the offline contour guide](docs/reference-contour.md).
 Browser YIN frame sizing and sample-rate trade-offs are documented in
 [the pitch detection guide](docs/browser-pitch-detection.md).
+Reproducible generated-signal metrics and the private Malayalam evaluation
+protocol are documented in [the evaluation guide](docs/evaluation.md).
 Secure microphone lifecycle behavior is documented in
 [the microphone capture guide](docs/microphone-capture.md).
 The worker's bounded FFmpeg normalization contract is documented in

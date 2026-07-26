@@ -30,6 +30,7 @@ audio-ml = [
 [project.scripts]
 swaram-worker = "swaram_worker.main:main"
 swaram-reference-contour = "swaram_worker.reference_contour:main"
+swaram-evaluate = "swaram_worker.evaluation:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/swaram_worker"]
