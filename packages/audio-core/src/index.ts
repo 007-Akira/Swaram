@@ -29,4 +29,11 @@ export {
   type LivePitchDebug,
   type LivePitchFrame,
 } from "./live-pitch";
+export {
+  findTimedValueAtOrBefore,
+  normalizeSongTimeMs,
+  PracticeClock,
+  type MediaPositionSource,
+  type TimedValue,
+} from "./practice-clock";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";

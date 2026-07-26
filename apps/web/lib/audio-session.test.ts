@@ -42,6 +42,9 @@ function environment() {
   const playback = {
     src: "",
     currentTime: 0,
+    duration: 60,
+    paused: true,
+    loop: false,
     playbackRate: 1,
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
@@ -190,6 +193,12 @@ describe("AudioSessionController", () => {
     expect(controller.estimateLatency()).toBe(30);
     expect(controller.nudgeLatency(15)).toBe(45);
     expect(controller.getState().latencyOffsetMs).toBe(45);
+    browser.playback.currentTime = 1;
+    expect(controller.getPracticeTime()).toMatchObject({
+      rawSongTimeMs: 1_000,
+      comparisonTimeMs: 955,
+      latencyApplied: true,
+    });
   });
 
   it("restarts and resumes without creating duplicate audio nodes", async () => {

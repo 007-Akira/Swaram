@@ -23,6 +23,18 @@ sample count and the audio sample rate. The browser controller preserves that
 audio-clock timestamp on each stable frame; it does not use `Date.now()` or
 timer callbacks for pitch timing.
 
+## Shared practice clock
+
+`PracticeClock` is the only song-time boundary for lyric highlighting,
+reference-contour lookup, graph rendering, and scoring. It reads the playback
+element's actual `currentTime`, so browser handling of pause, seek, loop, and
+playback-rate changes remains authoritative. It never reconstructs playback
+position from `Date.now()` or `setInterval`.
+
+The clock normalizes loop boundaries, applies the session latency offset once,
+and returns a branded corrected timestamp. Timeline consumers share a
+deterministic binary-search helper that accepts this corrected timestamp.
+
 Frame comparison returns signed and absolute cents error. Positive signed cents
 means the singer is sharp; negative means flat. Valid voiced frames are grouped
 as excellent (≤25 cents), good (≤50), close (≤80), or off-pitch (>80). Missing,

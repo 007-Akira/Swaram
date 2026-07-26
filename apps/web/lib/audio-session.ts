@@ -4,6 +4,8 @@ import {
   generateCalibrationChirp,
   LivePitchProcessor,
   nudgeLatencyOffsetMs,
+  PracticeClock,
+  type CorrectedSongTime,
   type LeakageCalibrationResult,
   type LivePitchFrame,
 } from "@swaram/audio-core";
@@ -79,6 +81,9 @@ interface AudioContextLike {
 interface PlaybackElementLike {
   src: string;
   currentTime: number;
+  readonly duration: number;
+  readonly paused: boolean;
+  loop: boolean;
   playbackRate: number;
   play(): Promise<void>;
   pause(): void;
@@ -199,6 +204,7 @@ export class AudioSessionController {
   private playbackSource: AudioNodeLike | null = null;
   private worklet: WorkletNodeLike | null = null;
   private playback: PlaybackElementLike | null = null;
+  private practiceClock: PracticeClock | null = null;
   private disposed = false;
   private lifecycleGeneration = 0;
   private latencyOffsetMs = 0;
@@ -275,6 +281,10 @@ export class AudioSessionController {
       }
       this.playback = this.environment.createPlaybackElement();
       this.playback.src = this.options.playbackUrl;
+      this.practiceClock = new PracticeClock(
+        this.playback,
+        this.latencyOffsetMs,
+      );
       this.microphoneSource = this.context.createMediaStreamSource(this.stream);
       this.playbackSource = this.context.createMediaElementSource(
         this.playback,
@@ -328,14 +338,21 @@ export class AudioSessionController {
       outputLatencySeconds: this.context.outputLatency,
       detectedRoundTripMs,
     });
+    this.practiceClock?.setLatencyOffsetMs(this.latencyOffsetMs);
     this.publishCurrentState();
     return this.latencyOffsetMs;
   }
 
   nudgeLatency(nudgeMs: number): number {
     this.latencyOffsetMs = nudgeLatencyOffsetMs(this.latencyOffsetMs, nudgeMs);
+    this.practiceClock?.setLatencyOffsetMs(this.latencyOffsetMs);
     this.publishCurrentState();
     return this.latencyOffsetMs;
+  }
+
+  getPracticeTime(): CorrectedSongTime {
+    if (!this.practiceClock) throw new Error("Practice clock is unavailable");
+    return this.practiceClock.current();
   }
 
   async calibrateLeakage(
@@ -478,5 +495,6 @@ export class AudioSessionController {
     this.stream = null;
     this.context = null;
     this.playback = null;
+    this.practiceClock = null;
   }
 }
