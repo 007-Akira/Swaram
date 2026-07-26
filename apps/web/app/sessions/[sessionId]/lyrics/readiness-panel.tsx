@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface ReadinessIssue {
@@ -78,13 +79,22 @@ export function ReadinessPanel({ sessionId, token, refreshKey }: Props) {
           ))}
         </ul>
       )}
-      <button
-        className="mt-4 rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-[#07130f] disabled:cursor-not-allowed disabled:opacity-40"
-        disabled={!token || !ready || loading}
-        type="button"
-      >
-        പരിശീലനം തുടങ്ങുക
-      </button>
+      {token && ready && !loading ? (
+        <Link
+          className="mt-4 inline-block rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-[#07130f]"
+          href={`/sessions/${sessionId}/practice`}
+        >
+          പരിശീലനം തുടങ്ങുക
+        </Link>
+      ) : (
+        <button
+          className="mt-4 rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-[#07130f] disabled:cursor-not-allowed disabled:opacity-40"
+          disabled
+          type="button"
+        >
+          പരിശീലനം തുടങ്ങുക
+        </button>
+      )}
     </section>
   );
 }

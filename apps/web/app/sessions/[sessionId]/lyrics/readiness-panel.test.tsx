@@ -46,7 +46,7 @@ describe("ReadinessPanel", () => {
     );
     expect(await screen.findByText("എല്ലാം തയ്യാറാണ്.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "പരിശീലനം തുടങ്ങുക" }),
-    ).toBeEnabled();
+      screen.getByRole("link", { name: "പരിശീലനം തുടങ്ങുക" }),
+    ).toHaveAttribute("href", "/sessions/session-1/practice");
   });
 });

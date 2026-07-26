@@ -4,6 +4,7 @@ import type { LeakageCalibrationResult } from "@swaram/audio-core";
 import { useState } from "react";
 
 interface CalibrationController {
+  getState(): { readonly status: string };
   requestPermission(): Promise<void>;
   calibrateLeakage(
     allowTestingOverride?: boolean,
@@ -34,6 +35,9 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
     setError(null);
     try {
       await controller.requestPermission();
+      if (controller.getState().status !== "calibrating") {
+        throw new Error("microphone unavailable");
+      }
       setPermissionReady(true);
     } catch {
       setError("മൈക്രോഫോൺ ആരംഭിക്കാനായില്ല.");

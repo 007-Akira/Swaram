@@ -19,6 +19,7 @@ describe("HeadphoneCalibration", () => {
     render(
       <HeadphoneCalibration
         controller={{
+          getState: () => ({ status: "idle" }),
           requestPermission: vi.fn(),
           calibrateLeakage: vi.fn(),
         }}
@@ -41,6 +42,7 @@ describe("HeadphoneCalibration", () => {
     render(
       <HeadphoneCalibration
         controller={{
+          getState: () => ({ status: "calibrating" }),
           requestPermission: vi.fn().mockResolvedValue(undefined),
           calibrateLeakage,
         }}
