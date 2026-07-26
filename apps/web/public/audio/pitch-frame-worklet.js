@@ -30,7 +30,13 @@ class PitchFrameProcessor extends AudioWorkletProcessor {
       for (let index = 0; index < FRAME_SIZE; index += 1) {
         frame[index] = this.buffer[(this.writeIndex + index) % FRAME_SIZE];
       }
-      this.port.postMessage(frame.buffer, [frame.buffer]);
+      this.port.postMessage(
+        {
+          samples: frame.buffer,
+          audioTimeMs: (this.totalSamples / sampleRate) * 1000,
+        },
+        [frame.buffer],
+      );
     }
     return true;
   }

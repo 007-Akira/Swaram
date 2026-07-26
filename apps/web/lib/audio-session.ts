@@ -2,8 +2,10 @@ import {
   assessPlaybackLeakage,
   estimateLatencyOffsetMs,
   generateCalibrationChirp,
+  LivePitchProcessor,
   nudgeLatencyOffsetMs,
   type LeakageCalibrationResult,
+  type LivePitchFrame,
 } from "@swaram/audio-core";
 
 export type AudioSessionStatus =
@@ -100,10 +102,16 @@ export interface AudioSessionEnvironment {
 export interface AudioSessionOptions {
   readonly playbackUrl: string;
   readonly workletUrl?: string;
+  readonly pitchDebug?: boolean;
 }
 
 type StateListener = (state: AudioSessionState) => void;
-type FrameListener = (frame: Float32Array, sampleRate: number) => void;
+type FrameListener = (
+  frame: Float32Array,
+  sampleRate: number,
+  audioTimeMs: number,
+) => void;
+type PitchListener = (frame: LivePitchFrame) => void;
 
 const LEGAL_TRANSITIONS: Readonly<
   Record<AudioSessionStatus, ReadonlySet<AudioSessionStatus>>
@@ -178,6 +186,8 @@ export class AudioSessionController {
   private state = deriveState("idle");
   private readonly stateListeners = new Set<StateListener>();
   private readonly frameListeners = new Set<FrameListener>();
+  private readonly pitchListeners = new Set<PitchListener>();
+  private readonly pitchProcessor: LivePitchProcessor;
   private readonly visibilityListener = () => {
     if (this.environment?.isDocumentHidden()) {
       void this.stop();
@@ -197,6 +207,9 @@ export class AudioSessionController {
     private readonly options: AudioSessionOptions,
     private readonly environment: AudioSessionEnvironment | null = defaultEnvironment(),
   ) {
+    this.pitchProcessor = new LivePitchProcessor({
+      debug: options.pitchDebug ?? false,
+    });
     this.environment?.addVisibilityListener(this.visibilityListener);
   }
 
@@ -213,6 +226,11 @@ export class AudioSessionController {
   onFrame(listener: FrameListener): () => void {
     this.frameListeners.add(listener);
     return () => this.frameListeners.delete(listener);
+  }
+
+  onPitchFrame(listener: PitchListener): () => void {
+    this.pitchListeners.add(listener);
+    return () => this.pitchListeners.delete(listener);
   }
 
   async requestPermission(): Promise<void> {
@@ -263,10 +281,30 @@ export class AudioSessionController {
       );
       this.worklet = this.environment.createWorkletNode(this.context);
       this.worklet.port.onmessage = (event) => {
-        if (!(event.data instanceof ArrayBuffer)) return;
-        const frame = new Float32Array(event.data);
+        if (
+          typeof event.data !== "object" ||
+          event.data === null ||
+          !("samples" in event.data) ||
+          !("audioTimeMs" in event.data) ||
+          !(event.data.samples instanceof ArrayBuffer) ||
+          typeof event.data.audioTimeMs !== "number"
+        ) {
+          return;
+        }
+        const frame = new Float32Array(event.data.samples);
+        const audioTimeMs = event.data.audioTimeMs;
         const sampleRate = this.context?.sampleRate ?? 0;
-        for (const listener of this.frameListeners) listener(frame, sampleRate);
+        for (const listener of this.frameListeners) {
+          listener(frame, sampleRate, audioTimeMs);
+        }
+        if (sampleRate > 0) {
+          const pitchFrame = this.pitchProcessor.process(
+            frame,
+            sampleRate,
+            audioTimeMs,
+          );
+          for (const listener of this.pitchListeners) listener(pitchFrame);
+        }
       };
       this.microphoneSource.connect(this.worklet);
       this.playbackSource.connect(this.context.destination);
@@ -342,6 +380,7 @@ export class AudioSessionController {
       this.context.sampleRate,
       allowTestingOverride,
     );
+    this.pitchProcessor.reset();
     if (result.canContinue) this.completeCalibration();
     return result;
   }
@@ -391,6 +430,7 @@ export class AudioSessionController {
     await this.stop();
     this.stateListeners.clear();
     this.frameListeners.clear();
+    this.pitchListeners.clear();
     this.disposed = true;
   }
 

@@ -62,7 +62,11 @@ export interface MicrophoneEnvironment {
 }
 
 type StateListener = (state: MicrophoneState) => void;
-type FrameListener = (frame: Float32Array, sampleRate: number) => void;
+type FrameListener = (
+  frame: Float32Array,
+  sampleRate: number,
+  audioTimeMs: number,
+) => void;
 
 const INITIAL_STATE: MicrophoneState = {
   status: "idle",
@@ -190,12 +194,23 @@ export class MicrophoneCapture {
       this.source = this.context.createMediaStreamSource(this.stream);
       this.worklet = this.environment.createWorkletNode(this.context);
       this.worklet.port.onmessage = (event) => {
-        if (!(event.data instanceof ArrayBuffer)) {
+        if (
+          typeof event.data !== "object" ||
+          event.data === null ||
+          !("samples" in event.data) ||
+          !("audioTimeMs" in event.data) ||
+          !(event.data.samples instanceof ArrayBuffer) ||
+          typeof event.data.audioTimeMs !== "number"
+        ) {
           return;
         }
-        const frame = new Float32Array(event.data);
+        const frame = new Float32Array(event.data.samples);
         for (const listener of this.frameListeners) {
-          listener(frame, this.context?.sampleRate ?? 0);
+          listener(
+            frame,
+            this.context?.sampleRate ?? 0,
+            event.data.audioTimeMs,
+          );
         }
       };
       this.source.connect(this.worklet);

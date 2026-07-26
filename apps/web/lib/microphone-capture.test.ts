@@ -82,7 +82,11 @@ describe("MicrophoneCapture", () => {
       permission: "granted",
     });
     const data = Float32Array.from([0.1, 0.2]).buffer;
-    browser.port.onmessage?.(new MessageEvent("message", { data }));
+    browser.port.onmessage?.(
+      new MessageEvent("message", {
+        data: { samples: data, audioTimeMs: 100 },
+      }),
+    );
     expect(frames).toHaveLength(1);
     expect(Array.from(frames[0] ?? [])).toEqual(
       expect.arrayContaining([expect.closeTo(0.1), expect.closeTo(0.2)]),

@@ -143,13 +143,41 @@ describe("AudioSessionController", () => {
     const calibration = controller.calibrateLeakage();
     browser.port.onmessage?.(
       new MessageEvent("message", {
-        data: new Float32Array(4_096).buffer,
+        data: {
+          samples: new Float32Array(4_096).buffer,
+          audioTimeMs: 100,
+        },
       }),
     );
     const result = await calibration;
     expect(result.level).toBe("inconclusive");
     expect(controller.getState().status).toBe("ready");
     expect(browser.context.createBufferSource).toHaveBeenCalledOnce();
+  });
+
+  it("emits stable pitch frames timestamped by the audio worklet clock", async () => {
+    const browser = environment();
+    const controller = new AudioSessionController(
+      { playbackUrl: "private:instrumental", pitchDebug: true },
+      browser.value,
+    );
+    const frames: import("@swaram/audio-core").LivePitchFrame[] = [];
+    controller.onPitchFrame((frame) => frames.push(frame));
+    await controller.requestPermission();
+    browser.port.onmessage?.(
+      new MessageEvent("message", {
+        data: {
+          samples: new Float32Array(4_096).buffer,
+          audioTimeMs: 321,
+        },
+      }),
+    );
+    expect(frames).toHaveLength(1);
+    expect(frames[0]).toMatchObject({
+      timeMs: 321,
+      voiced: false,
+      debug: { rawFrequencyHz: null },
+    });
   });
 
   it("stores browser latency and allows a guided manual nudge", async () => {

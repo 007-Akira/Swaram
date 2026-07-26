@@ -10,6 +10,19 @@ represent low fundamentals; larger frames improve low-note resolution at the
 cost of latency and CPU work. The AudioWorklet integration should accumulate
 overlapping frames and timestamp them against one monotonic practice clock.
 
+`LivePitchProcessor` converts raw YIN observations into display-ready events.
+It applies a configurable vocal range, RMS/noise gate, confidence gate, a
+three-frame median, and isolated octave-spike rejection. Unvoiced frames clear
+the smoothing history so rests and consonants do not drag the next note.
+Octave-sized changes are accepted after a confirming frame; other gradual
+slides and vibrato are not clamped. Optional debug output includes raw and
+smoothed F0 plus RMS.
+
+The AudioWorklet timestamps each transferred PCM window from its processed
+sample count and the audio sample rate. The browser controller preserves that
+audio-clock timestamp on each stable frame; it does not use `Date.now()` or
+timer callbacks for pitch timing.
+
 Frame comparison returns signed and absolute cents error. Positive signed cents
 means the singer is sharp; negative means flat. Valid voiced frames are grouped
 as excellent (≤25 cents), good (≤50), close (≤80), or off-pitch (>80). Missing,

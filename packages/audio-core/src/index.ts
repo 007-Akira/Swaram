@@ -23,4 +23,10 @@ export {
   type CorrectedSongTime,
   type DeviceLatencyEvidence,
 } from "./latency";
+export {
+  LivePitchProcessor,
+  type LivePitchConfig,
+  type LivePitchDebug,
+  type LivePitchFrame,
+} from "./live-pitch";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";
