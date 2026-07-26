@@ -187,7 +187,7 @@ export function parseLyricsInput(
       if (!match || !match[2]) {
         throw new LyricParseError("invalid_lrc", "Invalid LRC lyric line");
       }
-      for (const timestamp of match[1].matchAll(
+      for (const timestamp of match[1]!.matchAll(
         /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g,
       )) {
         if (Number(timestamp[2]) >= 60) {
@@ -221,8 +221,8 @@ export function parseLyricsInput(
     }
     return {
       text_nfc: rows.join("\n"),
-      start_ms: srtMilliseconds(timing[1]),
-      end_ms: srtMilliseconds(timing[2]),
+      start_ms: srtMilliseconds(timing[1]!),
+      end_ms: srtMilliseconds(timing[2]!),
       is_stanza_break: false,
     };
   });

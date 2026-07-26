@@ -70,6 +70,23 @@ class LyricsAccepted(BaseModel):
     job_id: uuid.UUID | None = None
 
 
+class EditableLyricLine(BaseModel):
+    id: uuid.UUID | None = None
+    text: str
+    start_ms: int | None = None
+    end_ms: int | None = None
+    is_stanza_break: bool = False
+
+
+class LyricDocumentResponse(BaseModel):
+    document_id: uuid.UUID
+    lines: list[EditableLyricLine]
+
+
+class LyricDocumentUpdate(BaseModel):
+    lines: list[EditableLyricLine]
+
+
 class DeletedResponse(BaseModel):
     deleted: bool
 
@@ -314,6 +331,115 @@ async def get_session(
         lyrics_document_id=(
             practice_session.lyric_documents[-1].id if practice_session.lyric_documents else None
         ),
+    )
+
+
+def _latest_lyric_document(db: Session, practice_session: PracticeSession) -> LyricDocument:
+    document = db.scalar(
+        select(LyricDocument)
+        .where(LyricDocument.session_id == practice_session.id)
+        .options(selectinload(LyricDocument.lines))
+        .order_by(LyricDocument.created_at.desc())
+        .limit(1)
+    )
+    if document is None:
+        raise ApiError(status.HTTP_404_NOT_FOUND, "lyrics_not_found", "Lyrics not found")
+    return document
+
+
+@router.get(
+    "/sessions/{session_id}/lyrics",
+    response_model=LyricDocumentResponse,
+)
+async def get_lyrics(
+    practice_session: Annotated[PracticeSession, Depends(require_session)],
+    db: Annotated[Session, Depends(get_db_session)],
+) -> LyricDocumentResponse:
+    document = _latest_lyric_document(db, practice_session)
+    return LyricDocumentResponse(
+        document_id=document.id,
+        lines=[
+            EditableLyricLine(
+                id=line.id,
+                text=line.text_nfc,
+                start_ms=line.start_ms,
+                end_ms=line.end_ms,
+                is_stanza_break=line.is_stanza_break,
+            )
+            for line in document.lines
+        ],
+    )
+
+
+@router.put(
+    "/sessions/{session_id}/lyrics",
+    response_model=LyricDocumentResponse,
+)
+async def update_lyrics(
+    payload: LyricDocumentUpdate,
+    practice_session: Annotated[PracticeSession, Depends(require_session)],
+    db: Annotated[Session, Depends(get_db_session)],
+) -> LyricDocumentResponse:
+    if not payload.lines or not any(
+        line.text.strip() and not line.is_stanza_break for line in payload.lines
+    ):
+        raise ApiError(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "empty_lyrics",
+            "At least one lyric line is required",
+        )
+    previous_end = -1
+    for line in payload.lines:
+        if line.is_stanza_break:
+            continue
+        if not line.text.strip():
+            raise ApiError(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "empty_lyric_line",
+                "Lyric lines cannot be empty",
+            )
+        if line.start_ms is not None:
+            if line.start_ms < previous_end or (
+                line.end_ms is not None and line.end_ms <= line.start_ms
+            ):
+                raise ApiError(
+                    status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    "invalid_lyric_timing",
+                    "Lyric timings must be ordered and non-overlapping",
+                )
+            previous_end = line.end_ms if line.end_ms is not None else line.start_ms
+    document = _latest_lyric_document(db, practice_session)
+    previous_lines = list(document.lines)
+    document.lines.clear()
+    for previous_line in previous_lines:
+        db.delete(previous_line)
+    db.flush()
+    normalized_lines = [
+        LyricLine(
+            position=index,
+            text_nfc=unicodedata.normalize("NFC", line.text),
+            start_ms=line.start_ms,
+            end_ms=line.end_ms,
+            is_stanza_break=line.is_stanza_break,
+        )
+        for index, line in enumerate(payload.lines)
+    ]
+    document.lines.extend(normalized_lines)
+    document.text_nfc = "\n".join(line.text_nfc for line in normalized_lines)
+    db.commit()
+    db.refresh(document)
+    return LyricDocumentResponse(
+        document_id=document.id,
+        lines=[
+            EditableLyricLine(
+                id=line.id,
+                text=line.text_nfc,
+                start_ms=line.start_ms,
+                end_ms=line.end_ms,
+                is_stanza_break=line.is_stanza_break,
+            )
+            for line in document.lines
+        ],
     )
 
 

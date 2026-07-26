@@ -217,3 +217,57 @@ async def test_ready_inputs_create_one_private_idempotent_job(
     )
     assert another_lyrics.status_code == 202
     assert another_lyrics.json()["job_id"] == job_id
+
+
+@pytest.mark.anyio
+async def test_lyric_editor_round_trip_normalizes_and_validates(
+    api_client: httpx.AsyncClient,
+) -> None:
+    session_id, token = await create_private_session(api_client)
+    await api_client.post(
+        f"/api/v1/sessions/{session_id}/lyrics",
+        headers=auth(token),
+        data={"text": "മഴവില്ല്\n\nകൺമണി"},
+    )
+    loaded = await api_client.get(f"/api/v1/sessions/{session_id}/lyrics", headers=auth(token))
+    assert loaded.status_code == 200
+    assert loaded.json()["lines"][1]["is_stanza_break"] is True
+    decomposed = unicodedata.normalize("NFD", "കൺമണി")
+    updated = await api_client.put(
+        f"/api/v1/sessions/{session_id}/lyrics",
+        headers=auth(token),
+        json={
+            "lines": [
+                {
+                    "text": decomposed,
+                    "start_ms": 1000,
+                    "end_ms": 2000,
+                    "is_stanza_break": False,
+                },
+                {
+                    "text": "",
+                    "start_ms": None,
+                    "end_ms": None,
+                    "is_stanza_break": True,
+                },
+            ]
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["lines"][0]["text"] == unicodedata.normalize("NFC", decomposed)
+    invalid = await api_client.put(
+        f"/api/v1/sessions/{session_id}/lyrics",
+        headers=auth(token),
+        json={
+            "lines": [
+                {
+                    "text": "തെറ്റ്",
+                    "start_ms": 2000,
+                    "end_ms": 1000,
+                    "is_stanza_break": False,
+                }
+            ]
+        },
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "invalid_lyric_timing"
