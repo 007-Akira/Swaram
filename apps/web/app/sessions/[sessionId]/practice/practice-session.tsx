@@ -20,6 +20,7 @@ import {
 } from "./playback-modes";
 import { PitchCanvas } from "./pitch-canvas";
 import type { ContourPoint } from "./pitch-renderer";
+import { PracticeLyrics, type PracticeLyricLine } from "./practice-lyrics";
 
 interface Props {
   readonly sessionId: string;
@@ -45,6 +46,7 @@ export function PracticeSession({ sessionId }: Props) {
   const [songTimeMs, setSongTimeMs] = useState(0);
   const [pitch, setPitch] = useState<LivePitchFrame | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisPackageV1 | null>(null);
+  const [lyrics, setLyrics] = useState<readonly PracticeLyricLine[]>([]);
   const [modes, setModes] = useState<readonly PlaybackModeAvailability[]>([]);
   const [activeMode, setActiveMode] = useState<PlaybackMode | null>(null);
   const [playbackSources, setPlaybackSources] = useState<
@@ -106,27 +108,35 @@ export function PracticeSession({ sessionId }: Props) {
           (mode): mode is PlaybackModeAvailability & { assetId: string } =>
             mode.available && mode.assetId !== null,
         );
-        const [analysisResponse, modeResponses] = await Promise.all([
-          fetch(`${apiUrl}/api/v1/sessions/${sessionId}/analysis`, {
-            headers: { "X-Session-Token": token },
-          }),
-          Promise.all(
-            availableModes.map(async (mode) => {
-              const response = await fetch(
-                `${apiUrl}/api/v1/sessions/${sessionId}/assets/${mode.assetId}/playback`,
-                { headers: { "X-Session-Token": token } },
-              );
-              if (!response.ok) throw new Error("playback unavailable");
-              const objectUrl = URL.createObjectURL(await response.blob());
-              objectUrls.push(objectUrl);
-              return [mode.mode, objectUrl] as const;
+        const [analysisResponse, lyricsResponse, modeResponses] =
+          await Promise.all([
+            fetch(`${apiUrl}/api/v1/sessions/${sessionId}/analysis`, {
+              headers: { "X-Session-Token": token },
             }),
-          ),
-        ]);
+            fetch(`${apiUrl}/api/v1/sessions/${sessionId}/lyrics`, {
+              headers: { "X-Session-Token": token },
+            }),
+            Promise.all(
+              availableModes.map(async (mode) => {
+                const response = await fetch(
+                  `${apiUrl}/api/v1/sessions/${sessionId}/assets/${mode.assetId}/playback`,
+                  { headers: { "X-Session-Token": token } },
+                );
+                if (!response.ok) throw new Error("playback unavailable");
+                const objectUrl = URL.createObjectURL(await response.blob());
+                objectUrls.push(objectUrl);
+                return [mode.mode, objectUrl] as const;
+              }),
+            ),
+          ]);
         if (!analysisResponse.ok) throw new Error("analysis unavailable");
+        if (!lyricsResponse.ok) throw new Error("lyrics unavailable");
         const parsedAnalysis = AnalysisPackageV1Schema.parse(
           await analysisResponse.json(),
         );
+        const lyricPayload = (await lyricsResponse.json()) as {
+          lines: PracticeLyricLine[];
+        };
         if (!active) {
           for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
           objectUrls.length = 0;
@@ -141,6 +151,7 @@ export function PracticeSession({ sessionId }: Props) {
           playbackUrl: initialSource,
         });
         setAnalysis(parsedAnalysis);
+        setLyrics(lyricPayload.lines);
         setModes(availability);
         setPlaybackSources(sources);
         setActiveMode(preferred);
@@ -289,6 +300,15 @@ export function PracticeSession({ sessionId }: Props) {
               />
             </div>
           )}
+          <PracticeLyrics
+            currentTimeMs={songTimeMs}
+            isPlaying={sessionState.status === "playing"}
+            lines={lyrics}
+            onSeek={(timeMs) => {
+              controller.seek(timeMs);
+              setSongTimeMs(timeMs);
+            }}
+          />
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               disabled={!sessionState.canPlay}

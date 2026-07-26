@@ -396,6 +396,20 @@ export class AudioSessionController {
     this.playback.volume = volume;
   }
 
+  seek(songTimeMs: number): void {
+    if (!this.playback) throw new Error("Playback is unavailable");
+    if (!Number.isFinite(songTimeMs) || songTimeMs < 0) {
+      throw new Error("Seek time must be a non-negative finite number");
+    }
+    const seconds = songTimeMs / 1_000;
+    this.playback.currentTime = Math.min(
+      seconds,
+      Number.isFinite(this.playback.duration)
+        ? this.playback.duration
+        : seconds,
+    );
+  }
+
   async calibrateLeakage(
     allowTestingOverride = false,
   ): Promise<LeakageCalibrationResult> {

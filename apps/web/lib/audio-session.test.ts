@@ -230,6 +230,8 @@ describe("AudioSessionController", () => {
     expect(browser.context.createMediaElementSource).toHaveBeenCalledOnce();
     controller.setAccompanimentVolume(0.4);
     expect(browser.playback.volume).toBe(0.4);
+    controller.seek(3_500);
+    expect(controller.getPracticeTime().rawSongTimeMs).toBe(3_500);
   });
 
   it("releases the microphone and every audio node exactly once", async () => {
