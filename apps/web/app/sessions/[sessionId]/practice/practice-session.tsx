@@ -1,11 +1,16 @@
 "use client";
 
-import type { LivePitchFrame } from "@swaram/audio-core";
+import {
+  comparePitchToReferenceWindow,
+  type LivePitchFrame,
+  type PhraseComparisonSample,
+} from "@swaram/audio-core";
 import {
   AnalysisPackageV1Schema,
   type AnalysisPackageV1,
 } from "@swaram/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import {
   AudioSessionController,
@@ -25,6 +30,7 @@ import {
   PracticeLyrics,
   type PracticeLyricLine,
 } from "./practice-lyrics";
+import { buildAttemptPayload } from "./build-attempt";
 
 interface Props {
   readonly sessionId: string;
@@ -41,6 +47,8 @@ const INITIAL_STATE: AudioSessionState = {
 };
 
 export function PracticeSession({ sessionId }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [controller, setController] = useState<AudioSessionController | null>(
     null,
   );
@@ -62,10 +70,12 @@ export function PracticeSession({ sessionId }: Props) {
   const [countIn, setCountIn] = useState(false);
   const [countInActive, setCountInActive] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 0.75 | 0.9 | 1>(1);
   const [loopStatus, setLoopStatus] = useState("ലൂപ്പ് ഓഫാണ്.");
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
   const livePoints = useRef<ContourPoint[]>([]);
+  const attemptSamples = useRef<PhraseComparisonSample[]>([]);
   const referencePoints = useMemo(
     () =>
       analysis?.pitch_frames.map((frame) => ({
@@ -73,6 +83,25 @@ export function PracticeSession({ sessionId }: Props) {
         midi: frame.midi,
         voiced: frame.voiced,
       })) ?? [],
+    [analysis],
+  );
+  const referenceObservations = useMemo(
+    () =>
+      analysis?.pitch_frames.map((frame) => ({
+        timeMs: frame.time_ms,
+        frequencyHz: frame.frequency_hz,
+        confidence: frame.confidence,
+        voiced: frame.voiced,
+      })) ?? [],
+    [analysis],
+  );
+  const referenceMidiByTime = useMemo(
+    () =>
+      new Map(
+        analysis?.pitch_frames
+          .filter((frame) => frame.midi !== null)
+          .map((frame) => [frame.time_ms, frame.midi!]) ?? [],
+      ),
     [analysis],
   );
   const getLivePoints = useCallback(() => livePoints.current, []);
@@ -186,7 +215,8 @@ export function PracticeSession({ sessionId }: Props) {
         frame.voiced &&
         frame.midi !== null
       ) {
-        const timeMs = controller.getPracticeTime().comparisonTimeMs;
+        const correctedTime = controller.getPracticeTime();
+        const timeMs = correctedTime.comparisonTimeMs;
         livePoints.current.push({
           timeMs,
           midi: frame.midi,
@@ -194,6 +224,28 @@ export function PracticeSession({ sessionId }: Props) {
         });
         if (livePoints.current.length > 3_000) {
           livePoints.current.splice(0, livePoints.current.length - 3_000);
+        }
+        const comparison = comparePitchToReferenceWindow(
+          referenceObservations,
+          {
+            frequencyHz: frame.frequencyHz,
+            confidence: frame.confidence,
+            voiced: frame.voiced,
+          },
+          correctedTime,
+        );
+        const referenceMidi = comparison.valid
+          ? referenceMidiByTime.get(comparison.referenceTimeMs)
+          : undefined;
+        if (comparison.valid && referenceMidi !== undefined) {
+          attemptSamples.current.push({
+            timeMs,
+            referenceMidi,
+            userMidi: frame.midi,
+            signedCents: comparison.signedCents,
+            timeOffsetMs: comparison.timeOffsetMs,
+            confidence: comparison.confidence,
+          });
         }
       }
       if (performance.now() - lastPitchRender.current >= 100) {
@@ -203,6 +255,7 @@ export function PracticeSession({ sessionId }: Props) {
     });
     const unsubscribeLoop = controller.onLoopBoundary((_region, action) => {
       livePoints.current.length = 0;
+      attemptSamples.current.length = 0;
       setCountInActive(action === "begin_count_in");
       setLoopStatus(
         action === "begin_count_in"
@@ -210,17 +263,60 @@ export function PracticeSession({ sessionId }: Props) {
           : "ലൂപ്പ് വീണ്ടും ആരംഭിച്ചു.",
       );
     });
-    const unsubscribeCompleted = controller.onCompleted(() => {
-      setCountInActive(false);
-      setCompleted(true);
-    });
     return () => {
       unsubscribeState();
       unsubscribePitch();
       unsubscribeLoop();
-      unsubscribeCompleted();
     };
-  }, [controller]);
+  }, [controller, referenceMidiByTime, referenceObservations]);
+
+  useEffect(() => {
+    if (!controller || !analysis || !activeMode) return;
+    return controller.onCompleted(() => {
+      setCountInActive(false);
+      const payload = buildAttemptPayload(
+        analysis,
+        lyrics,
+        attemptSamples.current,
+        {
+          mode: activeMode,
+          speed: playbackSpeed,
+          latencyOffsetMs: controller.getState().latencyOffsetMs,
+          profile: "intermediate",
+        },
+      );
+      const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
+      if (!token) {
+        setCompleted(true);
+        return;
+      }
+      void fetch(
+        `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/sessions/${sessionId}/attempts`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Session-Token": token,
+          },
+          body: JSON.stringify(payload),
+        },
+      )
+        .then(async (response) => {
+          if (!response.ok) throw new Error("attempt save failed");
+          return (await response.json()) as { id: string };
+        })
+        .then(({ id }) => router.push(`/sessions/${sessionId}/reports/${id}`))
+        .catch(() => setCompleted(true));
+    });
+  }, [
+    activeMode,
+    analysis,
+    controller,
+    lyrics,
+    playbackSpeed,
+    router,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (!controller || !ready) return;
@@ -313,6 +409,11 @@ export function PracticeSession({ sessionId }: Props) {
           controller={controller}
           onReady={() => {
             controller.estimateLatency();
+            const requestedSeek = Number(searchParams.get("seek"));
+            if (Number.isFinite(requestedSeek) && requestedSeek >= 0) {
+              controller.seek(requestedSeek);
+              setSongTimeMs(requestedSeek);
+            }
             setReady(true);
           }}
         />
@@ -470,7 +571,10 @@ export function PracticeSession({ sessionId }: Props) {
               {([0.5, 0.75, 0.9, 1] as const).map((speed) => (
                 <button
                   key={speed}
-                  onClick={() => controller.setPlaybackRate(speed)}
+                  onClick={() => {
+                    controller.setPlaybackRate(speed);
+                    setPlaybackSpeed(speed);
+                  }}
                   type="button"
                 >
                   {speed}×

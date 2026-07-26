@@ -1,6 +1,7 @@
 import io
 import unicodedata
 from collections.abc import AsyncIterator
+from uuid import UUID
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 from swaram_api.audio_validation import AudioMetadata, AudioValidationError
 from swaram_api.database import Base, get_db_session
 from swaram_api.main import create_app
+from swaram_api.models import AnalysisPackage, PracticeAttempt, PracticeSession, UploadedAsset
 from swaram_api.sessions import get_storage
 from swaram_api.settings import Settings
 from swaram_api.storage import LocalPrivateStorage
@@ -48,6 +50,8 @@ async def api_client(tmp_path, monkeypatch) -> AsyncIterator[httpx.AsyncClient]:
     application.dependency_overrides[get_storage] = storage_override
     monkeypatch.setattr("swaram_api.sessions.get_settings", lambda: settings)
     transport = httpx.ASGITransport(app=application)
+    application.state.test_session_factory = factory
+    application.state.test_storage = storage
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
     engine.dispose()
@@ -316,3 +320,86 @@ async def test_analysis_endpoint_is_private_and_reports_missing(
     response = await api_client.get(endpoint, headers=auth(token))
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "analysis_not_found"
+
+
+@pytest.mark.anyio
+async def test_attempts_are_private_versioned_and_never_persist_raw_audio(
+    api_client: httpx.AsyncClient,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "swaram_api.sessions.inspect_audio",
+        lambda *_args: AudioMetadata(media_type="audio/wav", duration_ms=1_000),
+    )
+    session_id, token = await create_private_session(api_client)
+    upload = await api_client.post(
+        f"/api/v1/sessions/{session_id}/audio",
+        headers=auth(token),
+        files={"audio": ("test.wav", b"valid audio", "audio/wav")},
+    )
+    asset_id = UUID(upload.json()["id"])
+    application = api_client._transport.app  # type: ignore[attr-defined]
+    factory = application.state.test_session_factory
+    storage = application.state.test_storage
+    stored = storage.store(UUID(session_id), io.BytesIO(b"{}"))
+    with factory() as db:
+        practice_session = db.get(PracticeSession, UUID(session_id))
+        asset = db.get(UploadedAsset, asset_id)
+        assert practice_session is not None and asset is not None
+        db.add(
+            AnalysisPackage(
+                session_id=practice_session.id,
+                source_asset_id=asset.id,
+                object_key=stored.object_key,
+                version="1.0",
+                checksum_sha256=stored.checksum_sha256,
+                expires_at=practice_session.expires_at,
+            )
+        )
+        db.commit()
+
+    payload = {
+        "analysis_version": "1.0",
+        "score_version": "1.0.0",
+        "tolerance_profile": "intermediate",
+        "mode": "instrumental",
+        "speed": 1.0,
+        "latency_offset_ms": 35,
+        "overall_score": 82,
+        "component_scores": {
+            "pitch": 80,
+            "timing": 85,
+            "contour": 90,
+            "stability": 75,
+            "completion": 80,
+        },
+        "evidence_confidence": 0.8,
+        "valid_voiced_frames": 120,
+        "phrases": [],
+        "feedback": [],
+    }
+    endpoint = f"/api/v1/sessions/{session_id}/attempts"
+    assert (await api_client.post(endpoint, json=payload)).status_code == 401
+    created = await api_client.post(endpoint, headers=auth(token), json=payload)
+    assert created.status_code == 201
+    attempt_id = created.json()["id"]
+    listed = await api_client.get(endpoint, headers=auth(token))
+    assert listed.status_code == 200
+    assert listed.json()["attempts"][0]["id"] == attempt_id
+    detail = await api_client.get(
+        f"{endpoint}/{attempt_id}",
+        headers=auth(token),
+    )
+    assert detail.json()["data"]["score_version"] == "1.0.0"
+
+    rejected = await api_client.post(
+        endpoint,
+        headers=auth(token),
+        json={**payload, "raw_microphone_audio": "forbidden"},
+    )
+    assert rejected.status_code == 422
+    with factory() as db:
+        attempt = db.get(PracticeAttempt, UUID(attempt_id))
+        assert attempt is not None
+        assert attempt.recording_asset_id is None
+        assert "raw_microphone_audio" not in (attempt.score_data or {})

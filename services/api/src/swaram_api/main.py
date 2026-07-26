@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from swaram_api.attempts import router as attempts_router
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, api_error_handler
 from swaram_api.jobs import router as jobs_router
@@ -24,6 +25,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
     application.include_router(sessions_router)
     application.include_router(jobs_router)
+    application.include_router(attempts_router)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=active_settings.cors_origins,
