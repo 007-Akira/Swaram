@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @swaram/web --filter @swaram/api dev",
+    "dev:web": "pnpm --filter @swaram/web dev",
+    "dev:api": "pnpm --filter @swaram/api dev",
     "build": "pnpm -r --if-present build",
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
