@@ -16,6 +16,13 @@ export {
   type LeakageLevel,
 } from "./leakage-calibration";
 export {
+  generatePhraseFeedback,
+  generateSessionFeedback,
+  type FeedbackKind,
+  type FeedbackObservation,
+  type PhraseFeedbackEvidence,
+} from "./feedback";
+export {
   applyLatencyOffset,
   assertUncorrectedSongTime,
   estimateLatencyOffsetMs,
