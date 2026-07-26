@@ -30,6 +30,12 @@ export {
   type LivePitchFrame,
 } from "./live-pitch";
 export {
+  calculatePhraseMetrics,
+  type PhraseComparisonSample,
+  type PhraseMetric,
+  type PhraseMetrics,
+} from "./phrase-metrics";
+export {
   findTimedValueAtOrBefore,
   normalizeSongTimeMs,
   PracticeClock,
