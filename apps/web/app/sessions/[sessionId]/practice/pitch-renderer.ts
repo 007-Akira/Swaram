@@ -42,6 +42,13 @@ export function timeToX(timeMs: number, viewport: PitchViewport): number {
   );
 }
 
+export function xToTime(x: number, viewport: PitchViewport): number {
+  return (
+    viewport.startMs +
+    (x / Math.max(1, viewport.width)) * (viewport.endMs - viewport.startMs)
+  );
+}
+
 export function midiToY(midi: number, viewport: PitchViewport): number {
   return (
     viewport.height -

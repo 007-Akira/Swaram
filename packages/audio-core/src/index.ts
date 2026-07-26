@@ -36,4 +36,10 @@ export {
   type MediaPositionSource,
   type TimedValue,
 } from "./practice-clock";
+export {
+  createLoopRegion,
+  LoopBoundaryTracker,
+  type LoopBoundaryAction,
+  type LoopRegion,
+} from "./practice-loop";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";

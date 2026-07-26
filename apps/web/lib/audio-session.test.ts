@@ -47,6 +47,7 @@ function environment() {
     readyState: 1,
     loop: false,
     playbackRate: 1,
+    preservesPitch: false,
     volume: 1,
     addEventListener: vi.fn(),
     play: vi.fn().mockResolvedValue(undefined),
@@ -232,6 +233,22 @@ describe("AudioSessionController", () => {
     expect(browser.playback.volume).toBe(0.4);
     controller.seek(3_500);
     expect(controller.getPracticeTime().rawSongTimeMs).toBe(3_500);
+  });
+
+  it("changes speed with pitch preservation and resets at loop boundaries", async () => {
+    const browser = environment();
+    const controller = await readyController(browser);
+    const boundaries = vi.fn();
+    controller.onLoopBoundary(boundaries);
+    controller.setPlaybackRate(0.75);
+    expect(browser.playback.playbackRate).toBe(0.75);
+    expect(browser.playback.preservesPitch).toBe(true);
+    controller.setLoop(1_000, 2_000);
+    await controller.play();
+    browser.playback.currentTime = 2;
+    controller.processLoop(10_000);
+    expect(browser.playback.currentTime).toBe(1);
+    expect(boundaries).toHaveBeenCalledOnce();
   });
 
   it("releases the microphone and every audio node exactly once", async () => {

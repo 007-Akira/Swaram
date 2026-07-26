@@ -2,7 +2,12 @@
 
 import { useEffect, useRef } from "react";
 
-import { renderPitchContours, type ContourPoint } from "./pitch-renderer";
+import {
+  createPitchViewport,
+  renderPitchContours,
+  type ContourPoint,
+  xToTime,
+} from "./pitch-renderer";
 
 interface Props {
   readonly getReference: () => readonly ContourPoint[];
@@ -10,6 +15,7 @@ interface Props {
   readonly getCurrentTimeMs: () => number;
   readonly toleranceCents?: number;
   readonly showNoteLanes?: boolean;
+  readonly onSelectRegion?: (startMs: number, endMs: number) => void;
 }
 
 export function PitchCanvas({
@@ -18,8 +24,10 @@ export function PitchCanvas({
   getCurrentTimeMs,
   toleranceCents,
   showNoteLanes,
+  onSelectRegion,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const selectionStartX = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -54,6 +62,25 @@ export function PitchCanvas({
     <canvas
       aria-label="റഫറൻസ്, തത്സമയ ശ്രുതി ഗ്രാഫ്"
       className="h-72 w-full rounded-xl"
+      onPointerDown={(event) => {
+        selectionStartX.current = event.nativeEvent.offsetX;
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerUp={(event) => {
+        const startX = selectionStartX.current;
+        selectionStartX.current = null;
+        if (startX === null || !onSelectRegion) return;
+        const viewport = createPitchViewport(
+          getCurrentTimeMs(),
+          event.currentTarget.clientWidth,
+          event.currentTarget.clientHeight,
+        );
+        const first = xToTime(startX, viewport);
+        const second = xToTime(event.nativeEvent.offsetX, viewport);
+        if (Math.abs(second - first) >= 250) {
+          onSelectRegion(Math.min(first, second), Math.max(first, second));
+        }
+      }}
       ref={canvasRef}
       role="img"
     />

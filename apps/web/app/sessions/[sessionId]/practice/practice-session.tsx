@@ -20,7 +20,11 @@ import {
 } from "./playback-modes";
 import { PitchCanvas } from "./pitch-canvas";
 import type { ContourPoint } from "./pitch-renderer";
-import { PracticeLyrics, type PracticeLyricLine } from "./practice-lyrics";
+import {
+  activeLyricIndex,
+  PracticeLyrics,
+  type PracticeLyricLine,
+} from "./practice-lyrics";
 
 interface Props {
   readonly sessionId: string;
@@ -53,6 +57,10 @@ export function PracticeSession({ sessionId }: Props) {
     Partial<Record<PlaybackMode, string>>
   >({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loopStartMs, setLoopStartMs] = useState<number | null>(null);
+  const [loopEndMs, setLoopEndMs] = useState<number | null>(null);
+  const [countIn, setCountIn] = useState(false);
+  const [loopStatus, setLoopStatus] = useState("ലൂപ്പ് ഓഫാണ്.");
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
   const livePoints = useRef<ContourPoint[]>([]);
@@ -196,9 +204,14 @@ export function PracticeSession({ sessionId }: Props) {
         setPitch(frame);
       }
     });
+    const unsubscribeLoop = controller.onLoopBoundary(() => {
+      livePoints.current.length = 0;
+      setLoopStatus("ലൂപ്പ് വീണ്ടും ആരംഭിച്ചു.");
+    });
     return () => {
       unsubscribeState();
       unsubscribePitch();
+      unsubscribeLoop();
     };
   }, [controller]);
 
@@ -207,6 +220,7 @@ export function PracticeSession({ sessionId }: Props) {
     let animationFrame = 0;
     const update = () => {
       try {
+        controller.processLoop(performance.now());
         if (performance.now() - lastTimeRender.current >= 250) {
           lastTimeRender.current = performance.now();
           setSongTimeMs(controller.getPracticeTime().comparisonTimeMs);
@@ -219,6 +233,20 @@ export function PracticeSession({ sessionId }: Props) {
     animationFrame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(animationFrame);
   }, [controller, ready]);
+
+  const applyLoop = (startMs: number, endMs: number) => {
+    if (!controller) return;
+    try {
+      controller.setLoop(startMs, endMs, countIn ? 2_000 : 0);
+      setLoopStartMs(startMs);
+      setLoopEndMs(endMs);
+      setLoopStatus(
+        `ലൂപ്പ്: ${(startMs / 1_000).toFixed(1)}–${(endMs / 1_000).toFixed(1)} സെക്കൻഡ്`,
+      );
+    } catch {
+      setLoopStatus("ലൂപ്പ് പോയിന്റുകൾക്കിടയിൽ കുറഞ്ഞത് 0.25 സെക്കൻഡ് വേണം.");
+    }
+  };
 
   if (loadError) return <main className="p-6 text-red-200">{loadError}</main>;
   if (!controller)
@@ -295,6 +323,7 @@ export function PracticeSession({ sessionId }: Props) {
                 getCurrentTimeMs={getCurrentTimeMs}
                 getLive={getLivePoints}
                 getReference={getReferencePoints}
+                onSelectRegion={applyLoop}
                 showNoteLanes
                 toleranceCents={50}
               />
@@ -309,6 +338,74 @@ export function PracticeSession({ sessionId }: Props) {
               setSongTimeMs(timeMs);
             }}
           />
+          <section aria-label="ലൂപ്പ്, വേഗ നിയന്ത്രണങ്ങൾ" className="mt-5">
+            <p aria-live="polite">{loopStatus}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={() => setLoopStartMs(songTimeMs)} type="button">
+                ഇൻ പോയിന്റ്
+              </button>
+              <button onClick={() => setLoopEndMs(songTimeMs)} type="button">
+                ഔട്ട് പോയിന്റ്
+              </button>
+              <button
+                disabled={loopStartMs === null || loopEndMs === null}
+                onClick={() => {
+                  if (loopStartMs !== null && loopEndMs !== null) {
+                    applyLoop(loopStartMs, loopEndMs);
+                  }
+                }}
+                type="button"
+              >
+                മാനുവൽ ലൂപ്പ്
+              </button>
+              <button
+                onClick={() => {
+                  const index = activeLyricIndex(lyrics, songTimeMs);
+                  const line = lyrics[index];
+                  if (line && line.start_ms !== null && line.end_ms !== null) {
+                    applyLoop(line.start_ms, line.end_ms);
+                  }
+                }}
+                type="button"
+              >
+                ഇപ്പോഴത്തെ വരി ലൂപ്പ്
+              </button>
+              <button
+                onClick={() => {
+                  controller.clearLoop();
+                  setLoopStartMs(null);
+                  setLoopEndMs(null);
+                  setLoopStatus("ലൂപ്പ് ഓഫാണ്.");
+                }}
+                type="button"
+              >
+                ലൂപ്പ് നീക്കുക
+              </button>
+            </div>
+            <label className="mt-3 block">
+              <input
+                checked={countIn}
+                onChange={(event) => setCountIn(event.target.checked)}
+                type="checkbox"
+              />{" "}
+              വീണ്ടും തുടങ്ങുന്നതിന് മുമ്പ് 2 സെക്കൻഡ് കൗണ്ട്-ഇൻ
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {([0.5, 0.75, 0.9, 1] as const).map((speed) => (
+                <button
+                  key={speed}
+                  onClick={() => controller.setPlaybackRate(speed)}
+                  type="button"
+                >
+                  {speed}×
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-sm text-slate-300">
+              ഗ്രാഫിൽ തിരശ്ചീനമായി വലിച്ചും ലൂപ്പ് തിരഞ്ഞെടുക്കാം. ബ്രൗസർ
+              പിന്തുണയ്ക്കുന്നിടത്ത് വേഗം മാറ്റുമ്പോൾ ശ്രുതി സംരക്ഷിക്കും.
+            </p>
+          </section>
           <div className="mt-5 flex flex-wrap gap-3">
             <button
               disabled={!sessionState.canPlay}

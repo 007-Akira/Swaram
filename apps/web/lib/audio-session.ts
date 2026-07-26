@@ -3,11 +3,14 @@ import {
   estimateLatencyOffsetMs,
   generateCalibrationChirp,
   LivePitchProcessor,
+  LoopBoundaryTracker,
   nudgeLatencyOffsetMs,
   PracticeClock,
+  createLoopRegion,
   type CorrectedSongTime,
   type LeakageCalibrationResult,
   type LivePitchFrame,
+  type LoopRegion,
 } from "@swaram/audio-core";
 
 export type AudioSessionStatus =
@@ -86,6 +89,7 @@ interface PlaybackElementLike {
   readonly readyState: number;
   loop: boolean;
   playbackRate: number;
+  preservesPitch?: boolean;
   volume: number;
   addEventListener(
     type: string,
@@ -124,6 +128,7 @@ type FrameListener = (
   audioTimeMs: number,
 ) => void;
 type PitchListener = (frame: LivePitchFrame) => void;
+type LoopListener = (region: LoopRegion) => void;
 
 const LEGAL_TRANSITIONS: Readonly<
   Record<AudioSessionStatus, ReadonlySet<AudioSessionStatus>>
@@ -199,6 +204,7 @@ export class AudioSessionController {
   private readonly stateListeners = new Set<StateListener>();
   private readonly frameListeners = new Set<FrameListener>();
   private readonly pitchListeners = new Set<PitchListener>();
+  private readonly loopListeners = new Set<LoopListener>();
   private readonly pitchProcessor: LivePitchProcessor;
   private readonly visibilityListener = () => {
     if (this.environment?.isDocumentHidden()) {
@@ -215,6 +221,8 @@ export class AudioSessionController {
   private disposed = false;
   private lifecycleGeneration = 0;
   private latencyOffsetMs = 0;
+  private loopRegion: LoopRegion | null = null;
+  private readonly loopTracker = new LoopBoundaryTracker();
 
   constructor(
     private readonly options: AudioSessionOptions,
@@ -244,6 +252,11 @@ export class AudioSessionController {
   onPitchFrame(listener: PitchListener): () => void {
     this.pitchListeners.add(listener);
     return () => this.pitchListeners.delete(listener);
+  }
+
+  onLoopBoundary(listener: LoopListener): () => void {
+    this.loopListeners.add(listener);
+    return () => this.loopListeners.delete(listener);
   }
 
   async requestPermission(): Promise<void> {
@@ -410,6 +423,40 @@ export class AudioSessionController {
     );
   }
 
+  setPlaybackRate(rate: 0.5 | 0.75 | 0.9 | 1): void {
+    if (!this.playback) throw new Error("Playback is unavailable");
+    this.playback.playbackRate = rate;
+    if ("preservesPitch" in this.playback) this.playback.preservesPitch = true;
+  }
+
+  setLoop(startMs: number, endMs: number, countInMs = 0): LoopRegion {
+    this.loopRegion = createLoopRegion(startMs, endMs, countInMs);
+    this.loopTracker.reset();
+    return this.loopRegion;
+  }
+
+  clearLoop(): void {
+    this.loopRegion = null;
+    this.loopTracker.reset();
+  }
+
+  processLoop(monotonicTimeMs: number): void {
+    if (!this.loopRegion || !this.playback || this.state.status !== "playing") {
+      return;
+    }
+    const action = this.loopTracker.update(
+      this.loopRegion,
+      this.getPracticeTime().rawSongTimeMs,
+      monotonicTimeMs,
+    );
+    if (action.type === "none") return;
+    if (action.type === "begin_count_in") this.playback.pause();
+    this.seek(action.seekToMs);
+    this.pitchProcessor.reset();
+    for (const listener of this.loopListeners) listener(this.loopRegion);
+    if (action.type === "restart") void this.playback.play();
+  }
+
   async calibrateLeakage(
     allowTestingOverride = false,
   ): Promise<LeakageCalibrationResult> {
@@ -503,6 +550,7 @@ export class AudioSessionController {
     this.stateListeners.clear();
     this.frameListeners.clear();
     this.pitchListeners.clear();
+    this.loopListeners.clear();
     this.disposed = true;
   }
 

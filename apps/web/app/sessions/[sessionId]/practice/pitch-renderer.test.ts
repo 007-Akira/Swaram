@@ -5,6 +5,7 @@ import {
   midiToY,
   selectContourWindow,
   timeToX,
+  xToTime,
 } from "./pitch-renderer";
 
 describe("pitch renderer transforms", () => {
@@ -12,6 +13,7 @@ describe("pitch renderer transforms", () => {
     const viewport = createPitchViewport(5_000, 800, 400, 10_000, 40, 80);
     expect(timeToX(viewport.startMs, viewport)).toBe(0);
     expect(timeToX(viewport.endMs, viewport)).toBe(800);
+    expect(xToTime(800, viewport)).toBe(viewport.endMs);
     expect(midiToY(80, viewport)).toBe(0);
     expect(midiToY(40, viewport)).toBe(400);
   });
