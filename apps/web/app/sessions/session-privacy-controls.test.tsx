@@ -17,15 +17,15 @@ describe("SessionPrivacyControls", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<SessionPrivacyControls sessionId="session-1" />);
 
-    expect(screen.getByText(/24 മണിക്കൂറിന് ശേഷം/u)).toBeVisible();
-    fireEvent.click(screen.getByText("ഈ സെഷൻ ഇപ്പോൾ ഇല്ലാതാക്കുക"));
+    expect(screen.getByText(/automatically removed 24 hours/u)).toBeVisible();
+    fireEvent.click(screen.getByText("Delete this session now"));
     const deleteButton = screen.getByRole("button", {
-      name: "സെഷൻ ശാശ്വതമായി ഇല്ലാതാക്കുക",
+      name: "Delete session permanently",
     });
     expect(deleteButton).toBeDisabled();
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: /എല്ലാ ഡാറ്റയും ഇല്ലാതാക്കണമെന്ന്/u,
+        name: /delete all data in this session/u,
       }),
     );
     fireEvent.click(deleteButton);

@@ -28,7 +28,7 @@ describe("HeadphoneCalibration", () => {
     );
     expect(
       screen.getByText(
-        /ബ്രൗസറിന് ഹെഡ്ഫോൺ ധരിച്ചിട്ടുണ്ടെന്ന് ഉറപ്പാക്കാൻ കഴിയില്ല/,
+        /browser cannot confirm that you are wearing headphones/i,
       ),
     ).toBeInTheDocument();
   });
@@ -50,18 +50,18 @@ describe("HeadphoneCalibration", () => {
       />,
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "മൈക്രോഫോൺ അനുവദിക്കുക" }),
+      screen.getByRole("button", { name: "Allow microphone" }),
     );
     fireEvent.click(
-      await screen.findByRole("button", { name: "ചോർച്ച പരിശോധിക്കുക" }),
+      await screen.findByRole("button", { name: "Check leakage" }),
     );
-    expect(await screen.findByText(/പ്ലേബാക്ക് കൂടുതലായി/)).toBeInTheDocument();
+    expect(await screen.findByText(/too much playback/i)).toBeInTheDocument();
     expect(onReady).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole("checkbox", { name: /പരിശോധനയ്ക്കായി മാത്രം/ }),
+      screen.getByRole("checkbox", { name: /for testing only/i }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "ചോർച്ച പരിശോധിക്കുക" }),
+      screen.getByRole("button", { name: "Check leakage" }),
     );
     await vi.waitFor(() => expect(onReady).toHaveBeenCalledOnce());
     expect(calibrateLeakage).toHaveBeenLastCalledWith(true);

@@ -30,7 +30,7 @@ interface Props {
 export function LyricsEditor({ sessionId }: Props) {
   const [lines, setLines] = useState<EditableLyricLine[]>([]);
   const [dirty, setDirty] = useState(false);
-  const [status, setStatus] = useState("വരികൾ ലോഡ് ചെയ്യുന്നു…");
+  const [status, setStatus] = useState("Loading lyrics…");
   const [selectedLine, setSelectedLine] = useState(0);
   const [durationMs, setDurationMs] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export function LyricsEditor({ sessionId }: Props) {
 
   const save = useCallback(async () => {
     if (!token) {
-      setStatus("ഈ സെഷന്റെ സ്വകാര്യ ആക്‌സസ് ടോക്കൺ ലഭ്യമല്ല.");
+      setStatus("The private access token for this session is unavailable.");
       return;
     }
     const errors = validateEditableLines(lines);
@@ -55,7 +55,7 @@ export function LyricsEditor({ sessionId }: Props) {
       setStatus(errors[0]!);
       return;
     }
-    setStatus("സേവ് ചെയ്യുന്നു…");
+    setStatus("Saving…");
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/sessions/${sessionId}/lyrics`,
       {
@@ -68,14 +68,14 @@ export function LyricsEditor({ sessionId }: Props) {
       },
     );
     if (!response.ok) {
-      setStatus("വരികൾ സേവ് ചെയ്യാനായില്ല. പിശകുകൾ പരിശോധിക്കുക.");
+      setStatus("The lyrics could not be saved. Check them for errors.");
       return;
     }
     const payload = (await response.json()) as { lines: EditableLyricLine[] };
     setLines(payload.lines);
     setDirty(false);
     setSaveVersion((version) => version + 1);
-    setStatus("എല്ലാ മാറ്റങ്ങളും സേവ് ചെയ്തു.");
+    setStatus("All changes saved.");
   }, [lines, sessionId, token]);
 
   useEffect(() => {
@@ -91,9 +91,9 @@ export function LyricsEditor({ sessionId }: Props) {
       })
       .then((payload) => {
         setLines(payload.lines);
-        setStatus("മാറ്റങ്ങളൊന്നുമില്ല.");
+        setStatus("No unsaved changes.");
       })
-      .catch(() => setStatus("വരികൾ ലോഡ് ചെയ്യാനായില്ല."));
+      .catch(() => setStatus("The lyrics could not be loaded."));
   }, [sessionId, token]);
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export function LyricsEditor({ sessionId }: Props) {
         objectUrl = URL.createObjectURL(await response.blob());
         setAudioUrl(objectUrl);
       })
-      .catch(() => setStatus("സ്വകാര്യ ഓഡിയോ ലോഡ് ചെയ്യാനായില്ല."));
+      .catch(() => setStatus("The private audio could not be loaded."));
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
@@ -138,7 +138,7 @@ export function LyricsEditor({ sessionId }: Props) {
   const change = useCallback((next: EditableLyricLine[]) => {
     setLines(next);
     setDirty(true);
-    setStatus("സേവ് ചെയ്യാത്ത മാറ്റങ്ങളുണ്ട്.");
+    setStatus("You have unsaved changes.");
   }, []);
 
   const timingChange = useCallback(
@@ -155,7 +155,7 @@ export function LyricsEditor({ sessionId }: Props) {
       return next;
     });
     setDirty(true);
-    setStatus("സേവ് ചെയ്യാത്ത മാർക്കർ മാറ്റങ്ങളുണ്ട്.");
+    setStatus("You have unsaved marker changes.");
   }, []);
   const waveformError = useCallback(
     (message: string) => setStatus(message),
@@ -165,7 +165,7 @@ export function LyricsEditor({ sessionId }: Props) {
   const markCurrentLine = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !durationMs) {
-      setStatus("ഓഡിയോ തയ്യാറായിട്ടില്ല.");
+      setStatus("The audio is not ready.");
       return;
     }
     try {
@@ -174,7 +174,7 @@ export function LyricsEditor({ sessionId }: Props) {
       );
       setSelectedLine(nextLyricIndex(lines, selectedLine));
     } catch {
-      setStatus("മാർക്കുകൾ സമയക്രമത്തിൽ ആയിരിക്കണം.");
+      setStatus("Markers must remain in chronological order.");
     }
   }, [durationMs, lines, selectedLine, timingChange]);
 
@@ -198,8 +198,8 @@ export function LyricsEditor({ sessionId }: Props) {
       <section className="mx-auto max-w-4xl">
         <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-sm text-emerald-300">സ്വകാര്യ ഗാന സെഷൻ</p>
-            <h1 className="text-3xl font-semibold">വരികൾ തയ്യാറാക്കുക</h1>
+            <p className="text-sm text-emerald-300">Private song session</p>
+            <h1 className="text-3xl font-semibold">Prepare your lyrics</h1>
             <p aria-live="polite" className="mt-2 text-sm text-slate-300">
               {status}
             </p>
@@ -209,7 +209,7 @@ export function LyricsEditor({ sessionId }: Props) {
             onClick={() => void save()}
             type="button"
           >
-            ഇപ്പോൾ സേവ് ചെയ്യുക
+            Save now
           </button>
         </header>
 
@@ -220,18 +220,18 @@ export function LyricsEditor({ sessionId }: Props) {
         />
 
         <section className="mb-6 rounded-xl border border-cyan-900 bg-[#0b1d23] p-4">
-          <h2 className="text-xl font-semibold">വരി സമയം അടയാളപ്പെടുത്തുക</h2>
+          <h2 className="text-xl font-semibold">Mark lyric timing</h2>
           {showInstructions && (
             <div className="mt-2 rounded-lg bg-cyan-950/60 p-3 text-sm">
-              ഓഡിയോ പ്ലേ ചെയ്ത് ഓരോ വരി തുടങ്ങുമ്പോഴും Space അമർത്തുക അല്ലെങ്കിൽ
-              “വരി അടയാളപ്പെടുത്തുക” തിരഞ്ഞെടുക്കുക. അവസാന സമയം അടുത്ത വരിയുടെ
-              തുടക്കത്തിൽ നിന്ന് സ്വയം കണക്കാക്കും.
+              Play the audio and press Space, or select “Mark line,” when each
+              lyric line begins. End times are calculated automatically from the
+              start of the next line.
               <button
                 className="ml-3 underline"
                 onClick={() => setShowInstructions(false)}
                 type="button"
               >
-                മനസ്സിലായി
+                Got it
               </button>
             </div>
           )}
@@ -256,11 +256,11 @@ export function LyricsEditor({ sessionId }: Props) {
             </div>
           )}
           <p className="mt-2 text-sm text-cyan-200">
-            നിലവിലെ വരി: {selectedLine + 1}
+            Current line: {selectedLine + 1}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button onClick={markCurrentLine} type="button">
-              വരി അടയാളപ്പെടുത്തുക
+              Mark line
             </button>
             <button
               onClick={() => {
@@ -277,7 +277,7 @@ export function LyricsEditor({ sessionId }: Props) {
               }
               type="button"
             >
-              ← മുൻ വരി
+              ← Previous line
             </button>
             <button
               onClick={() =>
@@ -285,7 +285,7 @@ export function LyricsEditor({ sessionId }: Props) {
               }
               type="button"
             >
-              അടുത്ത വരി →
+              Next line →
             </button>
             {([-250, -100, -50, 50, 100, 250] as const).map((delta) => (
               <button
@@ -296,7 +296,7 @@ export function LyricsEditor({ sessionId }: Props) {
                       nudgeLine(lines, selectedLine, delta, durationMs),
                     );
                   } catch {
-                    setStatus("മാർക്കുകൾ തമ്മിൽ കടക്കാനാവില്ല.");
+                    setStatus("Markers cannot cross each other.");
                   }
                 }}
                 type="button"
@@ -319,18 +319,18 @@ export function LyricsEditor({ sessionId }: Props) {
               }}
               type="button"
             >
-              വരി വീണ്ടും കേൾക്കുക
+              Replay line
             </button>
             <button
               onClick={() => timingChange(resetTimings(lines))}
               type="button"
             >
-              സമയം റീസെറ്റ് ചെയ്യുക
+              Reset timing
             </button>
           </div>
         </section>
 
-        <ol className="space-y-3" aria-label="മലയാളം ഗാനവരികൾ">
+        <ol className="space-y-3" aria-label="Song lyrics">
           {lines.map((line, index) => (
             <li
               className={`rounded-xl border p-3 ${
@@ -343,10 +343,10 @@ export function LyricsEditor({ sessionId }: Props) {
             >
               <label className="block">
                 <span className="mb-1 block text-xs text-slate-400">
-                  വരി {index + 1} · {graphemeCount(line.text)} അക്ഷരങ്ങൾ
+                  Line {index + 1} · {graphemeCount(line.text)} characters
                 </span>
                 <textarea
-                  aria-label={`വരി ${index + 1}`}
+                  aria-label={`Line ${index + 1}`}
                   className="min-h-16 w-full resize-y rounded-lg bg-[#081711] p-3 text-lg outline-none focus:ring-2 focus:ring-emerald-400"
                   onChange={(event) => {
                     const next = [...lines];
@@ -365,7 +365,7 @@ export function LyricsEditor({ sessionId }: Props) {
                   onClick={() => change(insertLine(lines, index))}
                   type="button"
                 >
-                  + വരി
+                  + Line
                 </button>
                 <button
                   onClick={() =>
@@ -375,13 +375,13 @@ export function LyricsEditor({ sessionId }: Props) {
                   }
                   type="button"
                 >
-                  വിഭജിക്കുക
+                  Split
                 </button>
                 <button
                   onClick={() => change(mergeWithNext(lines, index))}
                   type="button"
                 >
-                  അടുത്തതുമായി ചേർക്കുക
+                  Merge with next
                 </button>
                 <button
                   onClick={() => change(moveLine(lines, index, -1))}
@@ -399,7 +399,7 @@ export function LyricsEditor({ sessionId }: Props) {
                   onClick={() => change(deleteLine(lines, index))}
                   type="button"
                 >
-                  നീക്കുക
+                  Delete
                 </button>
               </div>
             </li>

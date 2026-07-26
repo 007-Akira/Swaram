@@ -68,7 +68,7 @@ export function LyricWaveform({
           updateLineFromMarker(currentLines.current, region.id, region.start),
         );
       } catch {
-        onError("മാർക്കർ അടുത്ത വരിയെ കടക്കാനാവില്ല.");
+        onError("A marker cannot cross the next lyric line.");
       }
     });
     return () => {
@@ -100,10 +100,10 @@ export function LyricWaveform({
   return (
     <div>
       <p className="mb-2 text-sm text-slate-300">
-        തരംഗരൂപം നാവിഗേഷനു മാത്രം; പിച്ച് ഗ്രാഫല്ല.
+        This waveform is for navigation only; it is not a pitch graph.
       </p>
       <div
-        aria-label="ഗാന തരംഗരൂപവും വരി മാർക്കറുകളും"
+        aria-label="Song waveform and lyric line markers"
         className="overflow-x-auto rounded-lg bg-[#06110d]"
         ref={container}
       />

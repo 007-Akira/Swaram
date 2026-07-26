@@ -60,7 +60,7 @@ export function PitchCanvas({
 
   return (
     <canvas
-      aria-label="റഫറൻസ്, തത്സമയ ശ്രുതി ഗ്രാഫ്"
+      aria-label="Reference and live pitch graph"
       className="h-72 w-full rounded-xl"
       onPointerDown={(event) => {
         selectionStartX.current = event.nativeEvent.offsetX;

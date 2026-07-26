@@ -52,10 +52,10 @@ export function ReadinessPanel({ sessionId, token, refreshKey }: Props) {
 
   return (
     <section
-      aria-label="പരിശീലന സന്നദ്ധത"
+      aria-label="Practice readiness"
       className="mb-6 rounded-xl border border-amber-800 bg-amber-950/20 p-4"
     >
-      <h2 className="text-xl font-semibold">പരിശീലനത്തിന് തയ്യാറാണോ?</h2>
+      <h2 className="text-xl font-semibold">Ready to practice?</h2>
       {!token ? (
         <ul className="mt-3 space-y-2">
           <li className="rounded-lg bg-black/20 p-3">
@@ -66,9 +66,9 @@ export function ReadinessPanel({ sessionId, token, refreshKey }: Props) {
           </li>
         </ul>
       ) : loading ? (
-        <p>പരിശോധിക്കുന്നു…</p>
+        <p>Checking your session…</p>
       ) : ready ? (
-        <p className="mt-2 text-emerald-300">എല്ലാം തയ്യാറാണ്.</p>
+        <p className="mt-2 text-emerald-300">Everything is ready.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {issues.map((issue) => (
@@ -84,7 +84,7 @@ export function ReadinessPanel({ sessionId, token, refreshKey }: Props) {
           className="mt-4 inline-block rounded-lg bg-emerald-400 px-5 py-3 font-semibold text-[#07130f]"
           href={`/sessions/${sessionId}/practice`}
         >
-          പരിശീലനം തുടങ്ങുക
+          Start practice
         </Link>
       ) : (
         <button
@@ -92,7 +92,7 @@ export function ReadinessPanel({ sessionId, token, refreshKey }: Props) {
           disabled
           type="button"
         >
-          പരിശീലനം തുടങ്ങുക
+          Start practice
         </button>
       )}
     </section>

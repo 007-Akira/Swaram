@@ -109,12 +109,12 @@ function defaultEnvironment(): MicrophoneEnvironment | null {
 
 function userMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "മൈക്രോഫോൺ അനുമതി ലഭിച്ചില്ല. ബ്രൗസർ ക്രമീകരണത്തിൽ അനുമതി നൽകുക.";
+    return "Microphone permission was denied. Allow it in your browser settings.";
   }
   if (error instanceof DOMException && error.name === "NotFoundError") {
-    return "മൈക്രോഫോൺ കണ്ടെത്താനായില്ല.";
+    return "No microphone was found.";
   }
-  return "മൈക്രോഫോൺ ആരംഭിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.";
+  return "The microphone could not start. Please try again.";
 }
 
 export class MicrophoneCapture {
@@ -156,7 +156,8 @@ export class MicrophoneCapture {
       this.update({
         status: "error",
         permission: "unsupported",
-        error: "ഈ ബ്രൗസറിൽ ആവശ്യമായ മൈക്രോഫോൺ സൗകര്യം ലഭ്യമല്ല.",
+        error:
+          "This browser does not support the required microphone features.",
       });
       return;
     }
@@ -164,7 +165,7 @@ export class MicrophoneCapture {
       this.update({
         status: "error",
         permission: "unsupported",
-        error: "മൈക്രോഫോൺ ഉപയോഗിക്കാൻ സുരക്ഷിതമായ HTTPS ബന്ധം ആവശ്യമാണ്.",
+        error: "A secure HTTPS connection is required to use the microphone.",
       });
       return;
     }
@@ -176,7 +177,7 @@ export class MicrophoneCapture {
         this.update({
           status: "error",
           permission: "denied",
-          error: "മൈക്രോഫോൺ അനുമതി ബ്രൗസറിൽ നിരസിച്ചിരിക്കുന്നു.",
+          error: "Microphone permission is blocked in the browser.",
         });
         return;
       }

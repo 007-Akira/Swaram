@@ -17,7 +17,9 @@ describe("PracticeSession", () => {
     window.sessionStorage.clear();
     render(<PracticeSession sessionId="private-session" />);
     expect(
-      await screen.findByText("ഈ സ്വകാര്യ സെഷന്റെ ആക്‌സസ് ടോക്കൺ ലഭ്യമല്ല."),
+      await screen.findByText(
+        "The access token for this private session is unavailable.",
+      ),
     ).toBeInTheDocument();
   });
 });

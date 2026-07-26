@@ -120,12 +120,12 @@ test("loads the real private practice route with mocked session APIs", async ({
 
   await page.goto("/sessions/e2e-session/practice");
   await expect(
-    page.getByRole("heading", { name: "ഹെഡ്ഫോൺ പരിശോധന" }),
+    page.getByRole("heading", { name: "Headphone check" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "മൈക്രോഫോൺ അനുവദിക്കുക" }),
+    page.getByRole("button", { name: "Allow microphone" }),
   ).toBeVisible();
-  await expect(page.getByText(/24 മണിക്കൂറിന് ശേഷം/u)).toBeVisible();
+  await expect(page.getByText(/automatically removed 24 hours/i)).toBeVisible();
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(
     accessibility.violations.filter(({ impact }) =>

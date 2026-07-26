@@ -34,7 +34,7 @@ export function generatePhraseFeedback(
         "insufficient_voiced_data",
         "insufficient",
         100,
-        "വിലയിരുത്താൻ മതിയായ വ്യക്തമായ സ്വര ഡാറ്റ ലഭിച്ചില്ല.",
+        "There was not enough clear voiced data for a reliable assessment.",
       ),
     ];
   }
@@ -46,7 +46,7 @@ export function generatePhraseFeedback(
         "probable_octave_mismatch",
         "correction",
         95,
-        "ലക്ഷ്യസ്വരത്തേക്കാൾ വേറൊരു ഓക്ടേവിൽ പാടിയതായി തോന്നുന്നു.",
+        "You may be singing in a different octave from the reference.",
       ),
     );
   }
@@ -58,7 +58,7 @@ export function generatePhraseFeedback(
         "consistently_sharp",
         "correction",
         90,
-        `സ്വരം സാധാരണയായി ${Math.round(signedCents)} സെന്റ് ഉയരത്തിലാണ്.`,
+        `Your pitch is usually ${Math.round(signedCents)} cents sharp.`,
       ),
     );
   } else if (signedCents <= -25) {
@@ -67,7 +67,7 @@ export function generatePhraseFeedback(
         "consistently_flat",
         "correction",
         90,
-        `സ്വരം സാധാരണയായി ${Math.round(Math.abs(signedCents))} സെന്റ് താഴെയാണ്.`,
+        `Your pitch is usually ${Math.round(Math.abs(signedCents))} cents flat.`,
       ),
     );
   }
@@ -80,7 +80,7 @@ export function generatePhraseFeedback(
           "phrase_early",
           "correction",
           75,
-          `വരി ഏകദേശം ${Math.round(onsetOffset)} ms നേരത്തേ തുടങ്ങി.`,
+          `The line started about ${Math.round(onsetOffset)} ms early.`,
         ),
       );
     } else if (onsetOffset <= -80) {
@@ -89,7 +89,7 @@ export function generatePhraseFeedback(
           "phrase_late",
           "correction",
           75,
-          `വരി ഏകദേശം ${Math.round(Math.abs(onsetOffset))} ms വൈകി തുടങ്ങി.`,
+          `The line started about ${Math.round(Math.abs(onsetOffset))} ms late.`,
         ),
       );
     }
@@ -104,7 +104,7 @@ export function generatePhraseFeedback(
         "note_ended_early",
         "correction",
         70,
-        "ലക്ഷ്യസ്വരം ശരിയായി എത്തിയെങ്കിലും വരി നേരത്തേ അവസാനിച്ചു.",
+        "You reached the target pitch, but the line ended early.",
       ),
     );
   }
@@ -115,7 +115,7 @@ export function generatePhraseFeedback(
         "unstable_sustain",
         "correction",
         65,
-        "നീട്ടിപ്പാടുന്ന സ്വരത്തിൽ ആവശ്യത്തിലധികം ചലനം ഉണ്ടായിരുന്നു.",
+        "The sustained note had more pitch movement than expected.",
       ),
     );
   }
@@ -126,13 +126,13 @@ export function generatePhraseFeedback(
     evidence.referenceDirection !== "level"
   ) {
     const direction =
-      evidence.referenceDirection === "down" ? "താഴേക്കുള്ള" : "മുകളിലേക്കുള്ള";
+      evidence.referenceDirection === "down" ? "downward" : "upward";
     results.push(
       observation(
         "good_contour",
         "strength",
         40,
-        `${direction} സ്വരചലനം നന്നായി പിന്തുടർന്നു.`,
+        `You followed the ${direction} pitch contour well.`,
       ),
     );
   }

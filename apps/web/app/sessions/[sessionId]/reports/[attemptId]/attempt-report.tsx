@@ -38,24 +38,24 @@ interface Props {
 }
 
 const COMPONENT_LABELS: Record<string, string> = {
-  pitch: "ശ്രുതി",
-  timing: "സമയം",
-  contour: "സ്വരചലനം",
-  stability: "സ്ഥിരത",
-  completion: "പൂർത്തീകരണം",
+  pitch: "Pitch",
+  timing: "Timing",
+  contour: "Pitch contour",
+  stability: "Stability",
+  completion: "Completion",
 };
 
 export function AttemptReport({ sessionId, attempt, history }: Props) {
   return (
     <main className="mx-auto min-h-screen max-w-3xl p-6">
-      <h1 className="text-3xl font-semibold">പരിശീലന റിപ്പോർട്ട്</h1>
+      <h1 className="text-3xl font-semibold">Practice report</h1>
       <p className="mt-4 text-5xl font-bold">
         {attempt.data.overall_score === null
           ? "—"
           : Math.round(attempt.data.overall_score)}
       </p>
       <p>
-        തെളിവിന്റെ ആത്മവിശ്വാസം:{" "}
+        Evidence confidence:{" "}
         {Math.round(attempt.data.evidence_confidence * 100)}%
       </p>
       <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -69,7 +69,7 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
         ))}
       </section>
       <section className="mt-6">
-        <h2 className="text-2xl font-semibold">പ്രധാന നിർദ്ദേശങ്ങൾ</h2>
+        <h2 className="text-2xl font-semibold">Top suggestions</h2>
         {attempt.data.feedback.length ? (
           <ul className="mt-3 space-y-2">
             {attempt.data.feedback.map((item) => (
@@ -79,11 +79,11 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
             ))}
           </ul>
         ) : (
-          <p>വിശ്വസനീയമായ നിർദ്ദേശത്തിന് കൂടുതൽ സ്വര ഡാറ്റ ആവശ്യമാണ്.</p>
+          <p>More pitch data is needed for a reliable suggestion.</p>
         )}
       </section>
       <section className="mt-6">
-        <h2 className="text-2xl font-semibold">വരി അടിസ്ഥാനത്തിലുള്ള ഫലം</h2>
+        <h2 className="text-2xl font-semibold">Results by lyric line</h2>
         <ol className="mt-3 space-y-3">
           {attempt.data.phrases.map((phrase) => {
             const pitch = phrase.metrics.pitch;
@@ -94,12 +94,12 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
               >
                 <p className="text-lg">{phrase.text}</p>
                 <p>
-                  സ്കോർ:{" "}
+                  Score:{" "}
                   {phrase.score === null ? "—" : Math.round(phrase.score)}
                 </p>
                 <p className="text-sm text-slate-300">
-                  കവറേജ് {Math.round((pitch?.coverage ?? 0) * 100)}% ·
-                  ആത്മവിശ്വാസം {Math.round((pitch?.confidence ?? 0) * 100)}%
+                  Coverage {Math.round((pitch?.coverage ?? 0) * 100)}% ·
+                  Confidence {Math.round((pitch?.confidence ?? 0) * 100)}%
                 </p>
                 {phrase.feedback.map((item) => (
                   <p className="mt-1 text-sm" key={item.code}>
@@ -110,7 +110,7 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
                   className="mt-3 inline-block"
                   href={`/sessions/${sessionId}/practice?seek=${phrase.start_ms}`}
                 >
-                  ഈ വരി വീണ്ടും പരിശീലിക്കുക
+                  Practice this line again
                 </Link>
               </li>
             );
@@ -118,7 +118,7 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
         </ol>
       </section>
       <section className="mt-6">
-        <h2 className="text-2xl font-semibold">മുൻ ശ്രമങ്ങൾ</h2>
+        <h2 className="text-2xl font-semibold">Previous attempts</h2>
         <ul>
           {history
             .filter(({ id }) => id !== attempt.id)

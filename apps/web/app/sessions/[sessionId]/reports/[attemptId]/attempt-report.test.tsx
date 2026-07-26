@@ -15,7 +15,7 @@ const attempt: AttemptReportRecord = {
       {
         code: "sharp",
         kind: "correction",
-        message: "സ്വരം അല്പം ഉയരത്തിലാണ്.",
+        message: "Your pitch is slightly high.",
       },
     ],
     phrases: [
@@ -37,10 +37,10 @@ describe("AttemptReport", () => {
       <AttemptReport attempt={attempt} history={[]} sessionId="session-1" />,
     );
     expect(screen.getByText("88")).toBeInTheDocument();
-    expect(screen.getByText(/ആത്മവിശ്വാസം: 75%/)).toBeInTheDocument();
-    expect(screen.getByText("സ്വരം അല്പം ഉയരത്തിലാണ്.")).toBeInTheDocument();
+    expect(screen.getByText(/evidence confidence: 75%/i)).toBeInTheDocument();
+    expect(screen.getByText("Your pitch is slightly high.")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "ഈ വരി വീണ്ടും പരിശീലിക്കുക" }),
+      screen.getByRole("link", { name: "Practice this line again" }),
     ).toHaveAttribute("href", "/sessions/session-1/practice?seek=1000");
   });
 });

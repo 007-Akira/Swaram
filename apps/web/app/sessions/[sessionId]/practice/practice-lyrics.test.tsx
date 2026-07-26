@@ -87,6 +87,6 @@ describe("PracticeLyrics", () => {
         onSeek={vi.fn()}
       />,
     );
-    expect(screen.getByText(/വരികൾ ലഭ്യമല്ല/)).toBeInTheDocument();
+    expect(screen.getByText(/timed lyrics are unavailable/i)).toBeInTheDocument();
   });
 });

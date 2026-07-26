@@ -22,19 +22,19 @@ export function playbackModeAvailability(
       mode: "original",
       assetId: original?.id ?? null,
       available: Boolean(original),
-      reason: original ? null : "ഒറിജിനൽ ഓഡിയോ ലഭ്യമല്ല.",
+      reason: original ? null : "Original audio is unavailable.",
     },
     {
       mode: "instrumental",
       assetId: instrumental?.id ?? null,
       available: Boolean(instrumental),
-      reason: instrumental ? null : "ഇൻസ്ട്രുമെന്റൽ തയ്യാറായിട്ടില്ല.",
+      reason: instrumental ? null : "The instrumental track is not ready.",
     },
     {
       mode: "reduced_reference",
       assetId: null,
       available: false,
-      reason: "സ്വകാര്യ വോക്കൽ മിക്സ് ഈ പതിപ്പിൽ ലഭ്യമല്ല.",
+      reason: "A private reduced-vocal mix is unavailable in this version.",
     },
   ];
 }

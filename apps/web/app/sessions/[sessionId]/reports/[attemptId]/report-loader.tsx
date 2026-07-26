@@ -17,7 +17,9 @@ export function ReportLoader({
   useEffect(() => {
     const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
     if (!token) {
-      queueMicrotask(() => setError("സ്വകാര്യ റിപ്പോർട്ട് ടോക്കൺ ലഭ്യമല്ല."));
+      queueMicrotask(() =>
+        setError("The private report token is unavailable."),
+      );
       return;
     }
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -36,11 +38,10 @@ export function ReportLoader({
         setAttempt(detail as AttemptReportRecord);
         setHistory((list as { attempts: AttemptReportRecord[] }).attempts);
       })
-      .catch(() => setError("റിപ്പോർട്ട് ലോഡ് ചെയ്യാനായില്ല."));
+      .catch(() => setError("The report could not be loaded."));
   }, [attemptId, sessionId]);
   if (error) return <main className="p-6 text-red-200">{error}</main>;
-  if (!attempt)
-    return <main className="p-6">റിപ്പോർട്ട് ലോഡ് ചെയ്യുന്നു…</main>;
+  if (!attempt) return <main className="p-6">Loading report…</main>;
   return (
     <AttemptReport attempt={attempt} history={history} sessionId={sessionId} />
   );

@@ -90,11 +90,11 @@ export function validateEditableLines(
 ): string[] {
   const errors: string[] = [];
   if (!lines.some((line) => !line.is_stanza_break && line.text.trim())) {
-    errors.push("കുറഞ്ഞത് ഒരു വരിയെങ്കിലും ആവശ്യമാണ്.");
+    errors.push("At least one lyric line is required.");
   }
   lines.forEach((line, index) => {
     if (!line.is_stanza_break && !line.text.trim()) {
-      errors.push(`വരി ${index + 1} ശൂന്യമാണ്.`);
+      errors.push(`Line ${index + 1} is empty.`);
     }
   });
   return errors;

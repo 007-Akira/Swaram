@@ -51,16 +51,16 @@ describe("LyricsEditor", () => {
   it("loads Malayalam lines and exposes editing operations", async () => {
     render(<LyricsEditor sessionId="session-1" />);
     await screen.findByDisplayValue("മഴവില്ല്");
-    fireEvent.click(screen.getAllByRole("button", { name: "+ വരി" })[0]!);
+    fireEvent.click(screen.getAllByRole("button", { name: "+ Line" })[0]!);
     expect(screen.getAllByRole("textbox")).toHaveLength(3);
-    fireEvent.change(screen.getByLabelText("വരി 1"), {
+    fireEvent.change(screen.getByLabelText("Line 1"), {
       target: { value: "മഴവില്ലിന്നേഴാം വർണ്ണം" },
     });
     expect(
-      screen.getByText("സേവ് ചെയ്യാത്ത മാറ്റങ്ങളുണ്ട്."),
+      screen.getByText("You have unsaved changes."),
     ).toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole("button", { name: "ഇപ്പോൾ സേവ് ചെയ്യുക" }),
+      screen.getByRole("button", { name: "Save now" }),
     );
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(

@@ -14,11 +14,11 @@ export function SessionPrivacyControls({ sessionId }: Props) {
   const deleteSession = async () => {
     const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
     if (!token) {
-      setStatus("സ്വകാര്യ സെഷൻ ടോക്കൺ ലഭ്യമല്ല.");
+      setStatus("The private session token is unavailable.");
       return;
     }
     setDeleting(true);
-    setStatus("സെഷൻ ഇല്ലാതാക്കുന്നു…");
+    setStatus("Deleting session…");
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/sessions/${sessionId}`,
@@ -31,7 +31,7 @@ export function SessionPrivacyControls({ sessionId }: Props) {
       window.sessionStorage.removeItem(`swaram:${sessionId}:token`);
       window.location.assign("/");
     } catch {
-      setStatus("സെഷൻ ഇല്ലാതാക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.");
+      setStatus("The session could not be deleted. Please try again.");
       setDeleting(false);
     }
   };
@@ -42,19 +42,19 @@ export function SessionPrivacyControls({ sessionId }: Props) {
       className="mt-8 rounded-xl border border-slate-700 bg-slate-950 p-4"
     >
       <h2 className="text-xl font-semibold" id="privacy-controls-title">
-        സ്വകാര്യതയും ഡാറ്റ നിയന്ത്രണവും
+        Privacy and data controls
       </h2>
       <p className="mt-2 text-slate-200">
-        അപ്‌ലോഡ് ചെയ്ത ഓഡിയോ, വരികൾ, വിശകലനം, സ്കോറുകൾ എന്നിവ സ്വകാര്യമാണ്. സെഷൻ
-        സൃഷ്ടിച്ചതിന് 24 മണിക്കൂറിന് ശേഷം അവ സ്വയം നീക്കം ചെയ്യും. മൈക്രോഫോൺ
-        ഓഡിയോ ബ്രൗസറിന് പുറത്തേക്ക് അയയ്ക്കുകയോ സൂക്ഷിക്കുകയോ ഇല്ല.
+        Uploaded audio, lyrics, analysis, and scores are private. They are
+        automatically removed 24 hours after the session is created. Microphone
+        audio is never sent outside or stored beyond your browser.
       </p>
       <details className="mt-3">
         <summary className="cursor-pointer font-semibold">
-          ഈ സെഷൻ ഇപ്പോൾ ഇല്ലാതാക്കുക
+          Delete this session now
         </summary>
         <p className="mt-2 text-sm text-amber-100">
-          ഇത് ഓഡിയോ, വരികൾ, വിശകലനം, റിപ്പോർട്ടുകൾ എന്നിവ ശാശ്വതമായി നീക്കും.
+          This permanently removes the audio, lyrics, analysis, and reports.
         </p>
         <label className="mt-3 flex items-start gap-2">
           <input
@@ -62,7 +62,7 @@ export function SessionPrivacyControls({ sessionId }: Props) {
             onChange={(event) => setConfirmed(event.target.checked)}
             type="checkbox"
           />
-          ഈ സെഷന്റെ എല്ലാ ഡാറ്റയും ഇല്ലാതാക്കണമെന്ന് ഞാൻ സ്ഥിരീകരിക്കുന്നു.
+          I confirm that I want to delete all data in this session.
         </label>
         <button
           className="mt-3 border border-red-400 text-red-100"
@@ -70,7 +70,7 @@ export function SessionPrivacyControls({ sessionId }: Props) {
           onClick={() => void deleteSession()}
           type="button"
         >
-          {deleting ? "ഇല്ലാതാക്കുന്നു…" : "സെഷൻ ശാശ്വതമായി ഇല്ലാതാക്കുക"}
+          {deleting ? "Deleting…" : "Delete session permanently"}
         </button>
       </details>
       <p aria-live="assertive" className="mt-2 text-red-200">

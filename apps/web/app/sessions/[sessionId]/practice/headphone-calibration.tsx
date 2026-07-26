@@ -17,10 +17,10 @@ interface Props {
 }
 
 const RESULT_TEXT: Record<LeakageCalibrationResult["level"], string> = {
-  low: "പ്ലേബാക്ക് ചോർച്ച കുറവാണ്. പരിശീലനം തുടരാം.",
-  moderate: "കുറച്ച് പ്ലേബാക്ക് ചോർച്ചയുണ്ട്. ഹെഡ്ഫോൺ ശബ്ദം കുറയ്ക്കുക.",
-  high: "മൈക്രോഫോണിൽ പ്ലേബാക്ക് കൂടുതലായി കേൾക്കുന്നു. ഹെഡ്ഫോൺ ഉപയോഗിച്ച് വീണ്ടും ശ്രമിക്കുക.",
-  inconclusive: "മൈക്രോഫോൺ സിഗ്നൽ വളരെ കുറവാണ്. കണക്ഷൻ പരിശോധിക്കുക.",
+  low: "Playback leakage is low. You can continue to practice.",
+  moderate: "Some playback is leaking. Lower the headphone volume.",
+  high: "Too much playback is reaching the microphone. Use headphones and try again.",
+  inconclusive: "The microphone signal is too low. Check the connection.",
 };
 
 export function HeadphoneCalibration({ controller, onReady }: Props) {
@@ -37,12 +37,12 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
       await controller.requestPermission();
       const state = controller.getState();
       if (state.status !== "calibrating") {
-        setError(state.error ?? "മൈക്രോഫോൺ ആരംഭിക്കാനായില്ല.");
+        setError(state.error ?? "The microphone could not start.");
         throw new Error("microphone unavailable");
       }
       setPermissionReady(true);
     } catch {
-      setError((current) => current ?? "മൈക്രോഫോൺ ആരംഭിക്കാനായില്ല.");
+      setError((current) => current ?? "The microphone could not start.");
     } finally {
       setRunning(false);
     }
@@ -56,22 +56,22 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
       setResult(nextResult);
       if (nextResult.canContinue) onReady();
     } catch {
-      setError("ചോർച്ച പരിശോധന പൂർത്തിയാക്കാനായില്ല.");
+      setError("The leakage check could not be completed.");
     } finally {
       setRunning(false);
     }
   };
 
   return (
-    <section aria-label="ഹെഡ്ഫോൺ പരിശോധന">
-      <h1>ഹെഡ്ഫോൺ പരിശോധന</h1>
+    <section aria-label="Headphone check">
+      <h1>Headphone check</h1>
       <p>
-        ശരിയായ ശ്രുതി താരതമ്യത്തിന് ഹെഡ്ഫോൺ ആവശ്യമാണ്. പരിശോധനാ ശബ്ദം
-        കേൾക്കുമ്പോൾ നിശ്ശബ്ദരായിരിക്കുക.
+        Headphones are required for accurate pitch comparison. Stay quiet while
+        the test sound is playing.
       </p>
       <p>
-        ബ്രൗസറിന് ഹെഡ്ഫോൺ ധരിച്ചിട്ടുണ്ടെന്ന് ഉറപ്പാക്കാൻ കഴിയില്ല.
-        മൈക്രോഫോണിലേക്കുള്ള പ്ലേബാക്ക് ചോർച്ച മാത്രമാണ് ഈ പരിശോധന അളക്കുന്നത്.
+        The browser cannot confirm that you are wearing headphones. This check
+        only measures playback leaking into the microphone.
       </p>
       {!permissionReady ? (
         <button
@@ -79,7 +79,7 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
           onClick={() => void requestPermission()}
           type="button"
         >
-          മൈക്രോഫോൺ അനുവദിക്കുക
+          Allow microphone
         </button>
       ) : (
         <button
@@ -87,13 +87,13 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
           onClick={() => void calibrate()}
           type="button"
         >
-          ചോർച്ച പരിശോധിക്കുക
+          Check leakage
         </button>
       )}
       {result && (
         <div aria-live="polite">
           <p>{RESULT_TEXT[result.level]}</p>
-          <p>സഹബന്ധം: {result.peakCorrelation.toFixed(2)}</p>
+          <p>Correlation: {result.peakCorrelation.toFixed(2)}</p>
         </div>
       )}
       {result?.level === "high" && !result.canContinue && (
@@ -103,7 +103,7 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
             onChange={(event) => setOverride(event.target.checked)}
             type="checkbox"
           />
-          പരിശോധനയ്ക്കായി മാത്രം മുന്നറിയിപ്പ് മറികടക്കുക
+          Override warning for testing only
         </label>
       )}
       {error && <p aria-live="assertive">{error}</p>}

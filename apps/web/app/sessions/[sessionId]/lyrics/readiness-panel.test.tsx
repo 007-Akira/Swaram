@@ -29,7 +29,7 @@ describe("ReadinessPanel", () => {
     );
     expect(await screen.findByText("Use tap-to-sync.")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "പരിശീലനം തുടങ്ങുക" }),
+      screen.getByRole("button", { name: "Start practice" }),
     ).toBeDisabled();
   });
 
@@ -44,9 +44,9 @@ describe("ReadinessPanel", () => {
     render(
       <ReadinessPanel refreshKey={0} sessionId="session-1" token="token" />,
     );
-    expect(await screen.findByText("എല്ലാം തയ്യാറാണ്.")).toBeInTheDocument();
+    expect(await screen.findByText("Everything is ready.")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "പരിശീലനം തുടങ്ങുക" }),
+      screen.getByRole("link", { name: "Start practice" }),
     ).toHaveAttribute("href", "/sessions/session-1/practice");
   });
 });

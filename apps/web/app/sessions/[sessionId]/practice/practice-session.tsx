@@ -72,7 +72,7 @@ export function PracticeSession({ sessionId }: Props) {
   const [countInActive, setCountInActive] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 0.75 | 0.9 | 1>(1);
-  const [loopStatus, setLoopStatus] = useState("ലൂപ്പ് ഓഫാണ്.");
+  const [loopStatus, setLoopStatus] = useState("Loop is off.");
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
   const livePoints = useRef<ContourPoint[]>([]);
@@ -121,7 +121,9 @@ export function PracticeSession({ sessionId }: Props) {
     if (!token) {
       queueMicrotask(() => {
         if (active) {
-          setLoadError("ഈ സ്വകാര്യ സെഷന്റെ ആക്‌സസ് ടോക്കൺ ലഭ്യമല്ല.");
+          setLoadError(
+            "The access token for this private session is unavailable.",
+          );
         }
       });
       return () => {
@@ -194,7 +196,8 @@ export function PracticeSession({ sessionId }: Props) {
         setController(audioController);
       })
       .catch(() => {
-        if (active) setLoadError("സ്വകാര്യ പരിശീലന ഓഡിയോ ലോഡ് ചെയ്യാനായില്ല.");
+        if (active)
+          setLoadError("The private practice audio could not be loaded.");
       });
     return () => {
       active = false;
@@ -260,8 +263,8 @@ export function PracticeSession({ sessionId }: Props) {
       setCountInActive(action === "begin_count_in");
       setLoopStatus(
         action === "begin_count_in"
-          ? "കൗണ്ട്-ഇൻ നടക്കുന്നു…"
-          : "ലൂപ്പ് വീണ്ടും ആരംഭിച്ചു.",
+          ? "Count-in in progress…"
+          : "Loop restarted.",
       );
     });
     return () => {
@@ -377,23 +380,22 @@ export function PracticeSession({ sessionId }: Props) {
       setLoopStartMs(startMs);
       setLoopEndMs(endMs);
       setLoopStatus(
-        `ലൂപ്പ്: ${(startMs / 1_000).toFixed(1)}–${(endMs / 1_000).toFixed(1)} സെക്കൻഡ്`,
+        `Loop: ${(startMs / 1_000).toFixed(1)}–${(endMs / 1_000).toFixed(1)} seconds`,
       );
     } catch {
-      setLoopStatus("ലൂപ്പ് പോയിന്റുകൾക്കിടയിൽ കുറഞ്ഞത് 0.25 സെക്കൻഡ് വേണം.");
+      setLoopStatus("Loop points must be at least 0.25 seconds apart.");
     }
   };
 
   if (loadError) return <main className="p-6 text-red-200">{loadError}</main>;
-  if (!controller)
-    return <main className="p-6">പരിശീലനം ലോഡ് ചെയ്യുന്നു…</main>;
+  if (!controller) return <main className="p-6">Loading practice…</main>;
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl p-6">
       {completed ? (
-        <section aria-label="പരിശീലനം പൂർത്തിയായി">
-          <h1 className="text-3xl font-semibold">പരിശീലനം പൂർത്തിയായി</h1>
-          <p className="mt-3">ഈ പരിശീലന റൗണ്ട് അവസാനിച്ചു.</p>
+        <section aria-label="Practice complete">
+          <h1 className="text-3xl font-semibold">Practice complete</h1>
+          <p className="mt-3">This practice round has ended.</p>
           <button
             className="mt-5"
             onClick={() => {
@@ -402,7 +404,7 @@ export function PracticeSession({ sessionId }: Props) {
             }}
             type="button"
           >
-            വീണ്ടും പരിശീലിക്കുക
+            Practice again
           </button>
         </section>
       ) : !ready ? (
@@ -419,30 +421,30 @@ export function PracticeSession({ sessionId }: Props) {
           }}
         />
       ) : (
-        <section aria-label="പരിശീലന നിയന്ത്രണങ്ങൾ">
-          <h1 className="text-3xl font-semibold">സ്വരം പരിശീലനം</h1>
+        <section aria-label="Practice controls">
+          <h1 className="text-3xl font-semibold">Pitch practice</h1>
           <p aria-live="polite" className="mt-2 font-semibold">
-            അവസ്ഥ:{" "}
+            Status:{" "}
             {countInActive
-              ? "കൗണ്ട്-ഇൻ"
+              ? "Count-in"
               : sessionState.status === "playing"
-                ? "പരിശീലിക്കുന്നു"
+                ? "Practicing"
                 : sessionState.status === "paused"
-                  ? "ഇടവേള"
-                  : "തയ്യാർ"}
+                  ? "Paused"
+                  : "Ready"}
           </p>
           <p className="mt-3">
-            സമയം: {(songTimeMs / 1_000).toFixed(1)} സെക്കൻഡ്
+            Time: {(songTimeMs / 1_000).toFixed(1)} seconds
           </p>
           <p className="mt-2">
-            ഇപ്പോഴത്തെ ശ്രുതി:{" "}
+            Current pitch:{" "}
             {pitch?.frequencyHz ? `${pitch.frequencyHz.toFixed(1)} Hz` : "—"}
           </p>
           <p className="mt-2">
-            ലേറ്റൻസി തിരുത്തൽ: {sessionState.latencyOffsetMs} ms
+            Latency correction: {sessionState.latencyOffsetMs} ms
           </p>
           <fieldset className="mt-4">
-            <legend className="font-semibold">പ്ലേബാക്ക് മോഡ്</legend>
+            <legend className="font-semibold">Playback mode</legend>
             <div className="mt-2 flex flex-wrap gap-3">
               {modes.map((mode) => (
                 <button
@@ -460,16 +462,16 @@ export function PracticeSession({ sessionId }: Props) {
                   type="button"
                 >
                   {mode.mode === "original"
-                    ? "ഒറിജിനൽ"
+                    ? "Original"
                     : mode.mode === "instrumental"
-                      ? "ഇൻസ്ട്രുമെന്റൽ"
-                      : "കുറഞ്ഞ വോക്കൽ"}
+                      ? "Instrumental"
+                      : "Reduced vocal"}
                 </button>
               ))}
             </div>
           </fieldset>
           <label className="mt-4 block">
-            അനുഗമന ശബ്ദനില
+            Accompaniment volume
             <input
               className="ml-3"
               defaultValue="100"
@@ -484,13 +486,13 @@ export function PracticeSession({ sessionId }: Props) {
             />
           </label>
           <label className="mt-3 block text-slate-400">
-            റഫറൻസ് വോക്കൽ ശബ്ദനില
+            Reference vocal volume
             <input
               className="ml-3"
               disabled
               max="100"
               min="0"
-              title="സുരക്ഷിതമായ കുറഞ്ഞ-വോക്കൽ മിക്സ് ലഭ്യമല്ല."
+              title="A safe reduced-vocal mix is unavailable."
               type="range"
               value="0"
             />
@@ -516,14 +518,14 @@ export function PracticeSession({ sessionId }: Props) {
               setSongTimeMs(timeMs);
             }}
           />
-          <section aria-label="ലൂപ്പ്, വേഗ നിയന്ത്രണങ്ങൾ" className="mt-5">
+          <section aria-label="Loop and speed controls" className="mt-5">
             <p aria-live="polite">{loopStatus}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={() => setLoopStartMs(songTimeMs)} type="button">
-                ഇൻ പോയിന്റ്
+                Set in point
               </button>
               <button onClick={() => setLoopEndMs(songTimeMs)} type="button">
-                ഔട്ട് പോയിന്റ്
+                Set out point
               </button>
               <button
                 disabled={loopStartMs === null || loopEndMs === null}
@@ -534,7 +536,7 @@ export function PracticeSession({ sessionId }: Props) {
                 }}
                 type="button"
               >
-                മാനുവൽ ലൂപ്പ്
+                Manual loop
               </button>
               <button
                 onClick={() => {
@@ -546,18 +548,18 @@ export function PracticeSession({ sessionId }: Props) {
                 }}
                 type="button"
               >
-                ഇപ്പോഴത്തെ വരി ലൂപ്പ്
+                Loop current line
               </button>
               <button
                 onClick={() => {
                   controller.clearLoop();
                   setLoopStartMs(null);
                   setLoopEndMs(null);
-                  setLoopStatus("ലൂപ്പ് ഓഫാണ്.");
+                  setLoopStatus("Loop is off.");
                 }}
                 type="button"
               >
-                ലൂപ്പ് നീക്കുക
+                Clear loop
               </button>
             </div>
             <label className="mt-3 block">
@@ -566,7 +568,7 @@ export function PracticeSession({ sessionId }: Props) {
                 onChange={(event) => setCountIn(event.target.checked)}
                 type="checkbox"
               />{" "}
-              വീണ്ടും തുടങ്ങുന്നതിന് മുമ്പ് 2 സെക്കൻഡ് കൗണ്ട്-ഇൻ
+              2-second count-in before restarting
             </label>
             <div className="mt-3 flex flex-wrap gap-2">
               {([0.5, 0.75, 0.9, 1] as const).map((speed) => (
@@ -583,8 +585,8 @@ export function PracticeSession({ sessionId }: Props) {
               ))}
             </div>
             <p className="mt-2 text-sm text-slate-300">
-              ഗ്രാഫിൽ തിരശ്ചീനമായി വലിച്ചും ലൂപ്പ് തിരഞ്ഞെടുക്കാം. ബ്രൗസർ
-              പിന്തുണയ്ക്കുന്നിടത്ത് വേഗം മാറ്റുമ്പോൾ ശ്രുതി സംരക്ഷിക്കും.
+              You can also drag horizontally on the graph to select a loop.
+              Speed changes preserve pitch where the browser supports it.
             </p>
           </section>
           <div className="mt-5 flex flex-wrap gap-3">
@@ -593,28 +595,28 @@ export function PracticeSession({ sessionId }: Props) {
               onClick={() => void controller.play()}
               type="button"
             >
-              പ്ലേ
+              Play
             </button>
             <button
               disabled={!sessionState.canPause}
               onClick={() => controller.pause()}
               type="button"
             >
-              ഇടവേള
+              Pause
             </button>
             <button onClick={() => controller.nudgeLatency(-10)} type="button">
-              ലേറ്റൻസി −10 ms
+              Latency −10 ms
             </button>
             <button onClick={() => controller.nudgeLatency(10)} type="button">
-              ലേറ്റൻസി +10 ms
+              Latency +10 ms
             </button>
             <button onClick={() => void controller.stop()} type="button">
-              നിർത്തുക
+              Stop
             </button>
           </div>
           <p className="mt-4 text-sm text-slate-300">
-            കീബോർഡ്: Space പ്ലേ/ഇടവേള, R വീണ്ടും തുടങ്ങുക, [ ഇൻ, ] ഔട്ട്, Escape
-            നിർത്തുക.
+            Keyboard: Space plays or pauses, R restarts, [ sets in, ] sets out,
+            and Escape stops.
           </p>
         </section>
       )}

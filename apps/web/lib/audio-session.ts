@@ -199,9 +199,9 @@ function defaultEnvironment(): AudioSessionEnvironment | null {
 
 function errorMessage(error: unknown): string {
   if (error instanceof DOMException && error.name === "NotAllowedError") {
-    return "മൈക്രോഫോൺ അനുമതി ലഭിച്ചില്ല. ബ്രൗസർ ക്രമീകരണത്തിൽ അനുമതി നൽകുക.";
+    return "Microphone permission was denied. Allow it in your browser settings.";
   }
-  return "ഓഡിയോ സെഷൻ ആരംഭിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.";
+  return "The audio session could not start. Please try again.";
 }
 
 export class AudioSessionController {
@@ -282,7 +282,7 @@ export class AudioSessionController {
     if (!this.environment || !this.environment.isSecureContext) {
       this.transition(
         "error",
-        "മൈക്രോഫോൺ ഉപയോഗിക്കാൻ HTTPS പിന്തുണ ആവശ്യമാണ്.",
+        "A secure HTTPS connection is required to use the microphone.",
       );
       return;
     }

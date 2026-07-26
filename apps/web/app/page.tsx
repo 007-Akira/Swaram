@@ -40,7 +40,7 @@ export default function Home() {
           aria-label="Swaram home"
         >
           <span className="grid size-10 place-items-center rounded-full border border-emerald-300/30 bg-emerald-300/10 text-lg text-emerald-200">
-            സ്
+            S
           </span>
           <span>
             <span className="block text-lg font-semibold tracking-tight">

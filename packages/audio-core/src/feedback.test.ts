@@ -36,19 +36,19 @@ describe("feedback rules", () => {
         {
           "code": "consistently_sharp",
           "kind": "correction",
-          "message": "സ്വരം സാധാരണയായി 48 സെന്റ് ഉയരത്തിലാണ്.",
+          "message": "Your pitch is usually 48 cents sharp.",
           "priority": 90,
         },
         {
           "code": "phrase_late",
           "kind": "correction",
-          "message": "വരി ഏകദേശം 120 ms വൈകി തുടങ്ങി.",
+          "message": "The line started about 120 ms late.",
           "priority": 75,
         },
         {
           "code": "good_contour",
           "kind": "strength",
-          "message": "മുകളിലേക്കുള്ള സ്വരചലനം നന്നായി പിന്തുടർന്നു.",
+          "message": "You followed the upward pitch contour well.",
           "priority": 40,
         },
       ]
@@ -76,7 +76,7 @@ describe("feedback rules", () => {
         {
           "code": "insufficient_voiced_data",
           "kind": "insufficient",
-          "message": "വിലയിരുത്താൻ മതിയായ വ്യക്തമായ സ്വര ഡാറ്റ ലഭിച്ചില്ല.",
+          "message": "There was not enough clear voiced data for a reliable assessment.",
           "priority": 100,
         },
       ]

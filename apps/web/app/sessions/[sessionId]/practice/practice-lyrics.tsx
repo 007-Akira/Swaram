@@ -51,17 +51,17 @@ export function PracticeLyrics({
   isPlaying,
   onSeek,
   confirmSeek = () =>
-    window.confirm("പരിശീലനം നടക്കുന്നു. ഈ വരിയിലേക്ക് പോകണോ?"),
+    window.confirm("Practice is in progress. Jump to this line?"),
 }: Props) {
   const activeIndex = activeLyricIndex(lines, currentTimeMs);
   const visible = lyricWindow(lines, activeIndex);
   if (visible.length === 0) {
-    return <p>ഈ പരിശീലനത്തിന് സമയമിട്ട വരികൾ ലഭ്യമല്ല.</p>;
+    return <p>Timed lyrics are unavailable for this practice session.</p>;
   }
   const activeId = lines[activeIndex]?.id;
   return (
     <section
-      aria-label="സമയമിട്ട വരികൾ"
+      aria-label="Timed lyrics"
       className="my-5 space-y-2 text-center"
       style={{
         fontFamily:
