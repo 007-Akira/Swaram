@@ -1,1 +1,1 @@
-export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin.js";
+export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";

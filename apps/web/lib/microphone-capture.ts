@@ -45,6 +45,7 @@ interface WorkletNodeLike extends NodeLike {
 }
 
 interface AudioContextLike {
+  readonly sampleRate: number;
   readonly audioWorklet: { addModule(url: string): Promise<void> };
   createMediaStreamSource(stream: StreamLike): NodeLike;
   close(): Promise<void>;
@@ -61,7 +62,7 @@ export interface MicrophoneEnvironment {
 }
 
 type StateListener = (state: MicrophoneState) => void;
-type FrameListener = (frame: Float32Array) => void;
+type FrameListener = (frame: Float32Array, sampleRate: number) => void;
 
 const INITIAL_STATE: MicrophoneState = {
   status: "idle",
@@ -194,7 +195,7 @@ export class MicrophoneCapture {
         }
         const frame = new Float32Array(event.data);
         for (const listener of this.frameListeners) {
-          listener(frame);
+          listener(frame, this.context?.sampleRate ?? 0);
         }
       };
       this.source.connect(this.worklet);

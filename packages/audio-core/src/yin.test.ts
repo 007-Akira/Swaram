@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectPitchYin } from "./yin.js";
+import { detectPitchYin } from "./yin";
 
 const SAMPLE_RATE = 48_000;
 const FRAME_SIZE = 4_096;

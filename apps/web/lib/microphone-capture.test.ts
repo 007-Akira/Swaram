@@ -15,6 +15,7 @@ function environment(permission: PermissionState = "granted") {
   };
   const worklet = { port, connect: vi.fn(), disconnect: vi.fn() };
   const context = {
+    sampleRate: 48_000,
     audioWorklet: { addModule: vi.fn().mockResolvedValue(undefined) },
     createMediaStreamSource: vi.fn(() => source),
     close: vi.fn().mockResolvedValue(undefined),
@@ -63,7 +64,10 @@ describe("MicrophoneCapture", () => {
     const browser = environment();
     const capture = new MicrophoneCapture(browser.value);
     const frames: Float32Array[] = [];
-    capture.onFrame((frame) => frames.push(frame));
+    capture.onFrame((frame, sampleRate) => {
+      expect(sampleRate).toBe(48_000);
+      frames.push(frame);
+    });
     await capture.start({ echoCancellation: true });
 
     expect(browser.getUserMedia).toHaveBeenCalledWith({
