@@ -1,6 +1,6 @@
 {
   "name": "@swaram/api",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.1",
   "private": true,
   "scripts": {
     "dev": "python -m uvicorn swaram_api.main:app --app-dir src --reload --port 8000"

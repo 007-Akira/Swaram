@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "swaram-worker"
-version = "0.0.0"
+version = "0.1.0rc1"
 requires-python = ">=3.11"
 dependencies = [
   "librosa>=0.11,<1",
@@ -15,7 +15,7 @@ dependencies = [
   "scipy>=1.15,<2",
   "soundfile>=0.13,<1",
   "sqlalchemy>=2.0,<3",
-  "swaram-contracts==0.0.0",
+  "swaram-contracts==0.1.0rc1",
 ]
 
 [project.optional-dependencies]

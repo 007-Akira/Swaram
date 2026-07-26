@@ -54,43 +54,71 @@ test("serves Malayalam UI with privacy security headers", async ({ page }) => {
   ).toEqual([]);
 });
 
-test("loads the practice graph and explains mocked microphone denial", async ({
+test("loads the real private practice route with mocked session APIs", async ({
   page,
 }) => {
-  await page.route("**/api/prototype-media/analysis", (route) =>
-    route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify(analysis),
-    }),
-  );
-  await page.route("**/api/prototype-media/lyrics", (route) =>
-    route.fulfill({
-      contentType: "text/plain; charset=utf-8",
-      body: "[00:00.00]മലയാളം\n[00:02.00]പരിശീലനം",
-    }),
-  );
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, "permissions", {
-      configurable: true,
-      value: { query: async () => ({ state: "denied" }) },
-    });
+    window.sessionStorage.setItem(
+      "swaram:e2e-session:token",
+      "private-e2e-token",
+    );
   });
+  await page.route(
+    "http://localhost:8000/api/v1/sessions/e2e-session",
+    (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "e2e-session",
+          assets: [{ id: "audio-1", kind: "original_audio" }],
+        }),
+      }),
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/sessions/e2e-session/analysis",
+    (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(analysis),
+      }),
+  );
+  await page.route(
+    "http://localhost:8000/api/v1/sessions/e2e-session/lyrics",
+    (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          lines: [
+            {
+              id: "line-1",
+              text: "മലയാളം പരിശീലനം",
+              start_ms: 0,
+              end_ms: 4000,
+              is_stanza_break: false,
+            },
+          ],
+        }),
+      }),
+  );
+  await page.route(
+    "**/api/v1/sessions/e2e-session/assets/audio-1/playback-url",
+    (route) =>
+      route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          url: "http://localhost:8000/private-playback",
+        }),
+      }),
+  );
 
-  await page.goto("/prototype");
+  await page.goto("/sessions/e2e-session/practice");
   await expect(
-    page.getByRole("heading", {
-      name: "കേൾക്കൂ · പാടൂ · താരതമ്യം ചെയ്യൂ",
-    }),
+    page.getByRole("heading", { name: "ഹെഡ്ഫോൺ പരിശോധന" }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("റഫറൻസും തത്സമയ ശ്രുതിയും കാണിക്കുന്ന ഗ്രാഫ്"),
+    page.getByRole("button", { name: "മൈക്രോഫോൺ അനുവദിക്കുക" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "മൈക്രോഫോൺ തുടങ്ങുക" }).click();
-  await expect(
-    page.getByText("മൈക്രോഫോൺ അനുമതി ബ്രൗസറിൽ നിരസിച്ചിരിക്കുന്നു.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(page.getByText(/24 മണിക്കൂറിന് ശേഷം/u)).toBeVisible();
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(
     accessibility.violations.filter(({ impact }) =>

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "swaram-api"
-version = "0.0.0"
+version = "0.1.0rc1"
 requires-python = ">=3.11"
 dependencies = [
   "alembic>=1.14,<2",
@@ -14,6 +14,7 @@ dependencies = [
   "psycopg[binary]>=3.2,<4",
   "python-multipart>=0.0.20,<1",
   "sqlalchemy>=2.0,<3",
+  "swaram-contracts==0.1.0rc1",
   "uvicorn[standard]>=0.34,<1",
 ]
 

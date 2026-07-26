@@ -27,7 +27,7 @@ class HealthResponse(BaseModel):
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     active_settings = settings or get_settings()
-    application = FastAPI(title="Swaram API", version="0.0.0")
+    application = FastAPI(title="Swaram API", version="0.1.0-rc.1")
     application.state.settings = active_settings
     application.add_exception_handler(ApiError, api_error_handler)  # type: ignore[arg-type]
     application.include_router(sessions_router)

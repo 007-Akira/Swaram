@@ -6,7 +6,7 @@ explicit unvoiced frames. The cleaned contour applies confidence gating,
 short-gap interpolation, and median smoothing; `raw_pitch_frames` retains the
 unsmoothed detector output for private debugging.
 
-The prototype confidence gate defaults to `0.1`, selected for the authorized
+The reference confidence gate defaults to `0.1`, selected for the authorized
 mixed reference recording. Use `--confidence-threshold` to raise it for cleaner
 isolated vocals; downstream scoring must still ignore low-confidence frames.
 
@@ -20,7 +20,7 @@ Generate the versioned package:
 
 ```bash
 .venv/bin/swaram-reference-contour \
-  private-media/reference/test_audio.prototype.wav \
+  /absolute/private/path/authorized-reference.wav \
   private-media/analysis/test_audio.analysis-v1.json \
   --session-id f88c2a2b-1d5a-4c27-b4b9-38c320a14821
 ```
