@@ -38,9 +38,16 @@ const analysis = {
   sections: [],
 };
 
-test("serves Malayalam UI with privacy security headers", async ({ page }) => {
+test("serves the product entry UI with privacy security headers", async ({
+  page,
+}) => {
   const response = await page.goto("/");
-  await expect(page.getByRole("heading", { name: "സ്വരം" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /find the note/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /set up your practice/i }),
+  ).toBeVisible();
   expect(response?.headers()["x-frame-options"]).toBe("DENY");
   expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
   expect(response?.headers()["permissions-policy"]).toContain(
