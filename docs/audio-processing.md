@@ -31,3 +31,24 @@ RUN_AUDIO_INTEGRATION=1 \
 SWARAM_AUTHORIZED_AUDIO=/absolute/path/to/normalized.wav \
 pytest services/worker/tests/test_stem_separation.py
 ```
+
+## Durable pipeline
+
+The PostgreSQL worker claims one leased job, reports named progress stages,
+normalizes the private input, runs HTDemucs, extracts the vocal contour,
+computes timing metadata, and stores private normalized audio, stems, and a
+compact `AnalysisPackageV1`. Only after every object is written does one
+database transaction publish derivative records, the versioned package, and
+the succeeded job state. Failed publication removes partial objects.
+
+The input checksum plus pipeline version identifies an existing completed
+package, so retries do not rerun inference or create duplicate packages.
+Transient tool timeouts retry up to three attempts; deterministic decode,
+model, or validation failures store a stable user-safe code while detailed
+tracebacks remain server-side. Job workspaces are temporary and always
+removed. Raw pYIN frames remain in worker memory for debugging and are excluded
+from serialized packages.
+
+Configure the worker with the shared `PRIVATE_DATA_ROOT` and optional
+`STEM_DEVICE=cpu|auto|cuda|mps`. The API never serves vocal stems; only original
+or instrumental playback is eligible for its authorized range endpoint.

@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal
 
 from pydantic import model_validator
@@ -16,6 +17,8 @@ class WorkerSettings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     database_url: str = DEVELOPMENT_DATABASE_URL
     worker_poll_interval_seconds: float = 2.0
+    private_data_root: Path = Path("data")
+    stem_device: Literal["auto", "cpu", "cuda", "mps"] = "cpu"
 
     @model_validator(mode="after")
     def validate_runtime_values(self) -> "WorkerSettings":

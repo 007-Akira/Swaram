@@ -101,6 +101,32 @@ class PostgreSQLJobQueue:
             )
         return result.rowcount == 1
 
+    def set_progress(self, job_id: UUID, progress: int, stage: str) -> bool:
+        if not 0 <= progress <= 99:
+            raise ValueError("in-progress percentage must be between 0 and 99")
+        with self._engine.begin() as connection:
+            result = connection.execute(
+                text(
+                    """
+                    UPDATE processing_jobs
+                    SET progress = :progress, progress_stage = :stage,
+                        heartbeat_at = CURRENT_TIMESTAMP,
+                        lease_expires_at = CURRENT_TIMESTAMP
+                            + make_interval(secs => :lease_seconds),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :job_id AND state = 'RUNNING' AND claimed_by = :worker_id
+                    """
+                ),
+                {
+                    "job_id": job_id,
+                    "worker_id": self._worker_id,
+                    "progress": progress,
+                    "stage": stage,
+                    "lease_seconds": self._lease_seconds,
+                },
+            )
+        return result.rowcount == 1
+
     def succeed(self, job_id: UUID) -> bool:
         return self._finish(job_id, "SUCCEEDED", None)
 
@@ -116,6 +142,9 @@ class PostgreSQLJobQueue:
                     SET state = :state,
                         progress = CASE
                             WHEN :state = 'SUCCEEDED' THEN 100 ELSE progress
+                        END,
+                        progress_stage = CASE
+                            WHEN :state = 'SUCCEEDED' THEN 'complete' ELSE 'failed'
                         END,
                         failure_code = :failure_code, failure_detail = NULL,
                         finished_at = CURRENT_TIMESTAMP, lease_expires_at = NULL,
