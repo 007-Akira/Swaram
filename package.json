@@ -14,6 +14,7 @@
     "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
+    "test:e2e": "pnpm --filter @swaram/web test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:upgrade": ".venv/bin/alembic -c services/api/alembic.ini upgrade head",

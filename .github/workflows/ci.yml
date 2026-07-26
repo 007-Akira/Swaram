@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,6 +27,21 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm format:check
+
+  browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @swaram/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
 
   python-unit:
     runs-on: ubuntu-latest
