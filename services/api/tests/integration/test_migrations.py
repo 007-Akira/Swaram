@@ -29,6 +29,16 @@ def test_initial_migration_applies() -> None:
 
     engine = sa.create_engine(TEST_DATABASE_URL)
     try:
-        assert "system_metadata" in sa.inspect(engine).get_table_names()
+        table_names = set(sa.inspect(engine).get_table_names())
+        assert {
+            "system_metadata",
+            "practice_sessions",
+            "uploaded_assets",
+            "processing_jobs",
+            "lyric_documents",
+            "lyric_lines",
+            "analysis_packages",
+            "practice_attempts",
+        }.issubset(table_names)
     finally:
         engine.dispose()
