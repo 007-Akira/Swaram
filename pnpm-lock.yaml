@@ -77,6 +77,10 @@ importers:
         version: 3.0.8(@types/node@22.13.10)(jiti@2.7.0)(jsdom@26.0.0)(lightningcss@1.29.2)
 
   packages/contracts:
+    dependencies:
+      zod:
+        specifier: 3.24.2
+        version: 3.24.2
     devDependencies:
       typescript:
         specifier: 5.7.3
@@ -2771,6 +2775,9 @@ packages:
     engines: {node: '>=18.0.0'}
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
+
+  zod@3.24.2:
+    resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
 
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
@@ -5607,5 +5614,7 @@ snapshots:
   zod-validation-error@4.0.2(zod@4.4.3):
     dependencies:
       zod: 4.4.3
+
+  zod@3.24.2: {}
 
   zod@4.4.3: {}

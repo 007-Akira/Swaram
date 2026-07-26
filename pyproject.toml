@@ -1,5 +1,9 @@
 [tool.pytest.ini_options]
-testpaths = ["services/api/tests", "services/worker/tests"]
+testpaths = [
+  "services/api/tests",
+  "services/worker/tests",
+  "packages/contracts/python_tests",
+]
 addopts = "--strict-markers"
 markers = ["integration: requires an external PostgreSQL test database"]
 

@@ -1,0 +1,22 @@
+{
+  "analysis_version": "1.0",
+  "session_id": "f88c2a2b-1d5a-4c27-b4b9-38c320a14821",
+  "generated_at": "2026-07-26T10:00:00Z",
+  "duration_seconds": 1.5,
+  "pitch_frames": [
+    {
+      "time_seconds": 0.1,
+      "frequency_hz": 261.63,
+      "confidence": 0.94,
+      "voiced": true
+    }
+  ],
+  "sections": [
+    {
+      "id": "a72a7e92-0bf0-485c-b1fd-52091d024d04",
+      "label": "ആമുഖം",
+      "start_seconds": 0,
+      "end_seconds": 1.5
+    }
+  ]
+}
