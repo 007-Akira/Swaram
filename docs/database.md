@@ -20,6 +20,17 @@ pnpm db:upgrade
 pnpm db:status
 ```
 
+When PostgreSQL is installed rootlessly under `.runtime/postgresql`, as on a
+development machine without administrator access, manage the local server with:
+
+```bash
+pnpm db:server:start
+pnpm db:server:status
+pnpm db:server:stop
+```
+
+The runtime binaries, database files, socket, and logs are ignored by Git.
+
 `pnpm db:downgrade` reverses exactly one revision and can destroy schema data.
 Use it only against a disposable development database.
 

@@ -20,6 +20,9 @@
     "db:upgrade": ".venv/bin/alembic -c services/api/alembic.ini upgrade head",
     "db:downgrade": ".venv/bin/alembic -c services/api/alembic.ini downgrade -1",
     "db:status": ".venv/bin/alembic -c services/api/alembic.ini current",
+    "db:server:start": "bash scripts/local-postgres.sh start",
+    "db:server:stop": "bash scripts/local-postgres.sh stop",
+    "db:server:status": "bash scripts/local-postgres.sh status",
     "worker:once": ".venv/bin/swaram-worker --once"
   },
   "devDependencies": {

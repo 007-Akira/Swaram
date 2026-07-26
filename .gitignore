@@ -1,5 +1,6 @@
 .env
 .venv/
+.runtime/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -16,5 +17,6 @@ data/uploads/*
 !data/uploads/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+data/private/
 Swaram_Codex_Prompt_Pack*/
 private-media/
