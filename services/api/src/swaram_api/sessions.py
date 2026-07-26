@@ -29,6 +29,7 @@ from swaram_api.models import (
     ProcessingJob,
     UploadedAsset,
 )
+from swaram_api.readiness import evaluate_readiness
 from swaram_api.settings import get_settings
 from swaram_api.storage import (
     ByteRange,
@@ -89,6 +90,17 @@ class LyricDocumentUpdate(BaseModel):
 
 class DeletedResponse(BaseModel):
     deleted: bool
+
+
+class ReadinessIssueResponse(BaseModel):
+    code: str
+    message: str
+    action: str
+
+
+class ReadinessResponse(BaseModel):
+    ready: bool
+    issues: list[ReadinessIssueResponse]
 
 
 @lru_cache
@@ -476,6 +488,25 @@ async def playback_asset(
         status_code=status.HTTP_206_PARTIAL_CONTENT if partial else status.HTTP_200_OK,
         media_type=asset.media_type,
         headers=headers,
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/readiness",
+    response_model=ReadinessResponse,
+)
+async def session_readiness(
+    practice_session: Annotated[PracticeSession, Depends(require_session)],
+    db: Annotated[Session, Depends(get_db_session)],
+    storage: Annotated[PrivateStorage, Depends(get_storage)],
+) -> ReadinessResponse:
+    issues = evaluate_readiness(db, practice_session, storage)
+    return ReadinessResponse(
+        ready=not issues,
+        issues=[
+            ReadinessIssueResponse(code=issue.code, message=issue.message, action=issue.action)
+            for issue in issues
+        ],
     )
 
 

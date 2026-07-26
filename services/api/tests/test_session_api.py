@@ -271,3 +271,20 @@ async def test_lyric_editor_round_trip_normalizes_and_validates(
     )
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "invalid_lyric_timing"
+
+
+@pytest.mark.anyio
+async def test_readiness_endpoint_is_private_and_actionable(
+    api_client: httpx.AsyncClient,
+) -> None:
+    session_id, token = await create_private_session(api_client)
+    endpoint = f"/api/v1/sessions/{session_id}/readiness"
+    assert (await api_client.get(endpoint)).status_code == 401
+    response = await api_client.get(endpoint, headers=auth(token))
+    assert response.status_code == 200
+    assert response.json()["ready"] is False
+    issues = response.json()["issues"]
+    assert {"analysis_incomplete", "lyrics_missing", "playback_missing"} == {
+        issue["code"] for issue in issues
+    }
+    assert all(issue["action"] for issue in issues)

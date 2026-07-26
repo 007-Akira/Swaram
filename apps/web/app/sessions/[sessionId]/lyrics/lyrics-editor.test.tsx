@@ -26,9 +26,24 @@ describe("LyricsEditor", () => {
     window.sessionStorage.setItem("swaram:session-1:token", "private-token");
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ lines: initialLines }),
+      vi.fn().mockImplementation(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.endsWith("/readiness")) {
+          return {
+            ok: true,
+            json: async () => ({ ready: false, issues: [] }),
+          };
+        }
+        if (url.endsWith("/sessions/session-1")) {
+          return {
+            ok: true,
+            json: async () => ({ assets: [] }),
+          };
+        }
+        return {
+          ok: true,
+          json: async () => ({ lines: initialLines }),
+        };
       }),
     );
   });

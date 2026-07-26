@@ -20,6 +20,7 @@ import {
   resetTimings,
 } from "../../../../lib/lyric-sync";
 import { LyricWaveform } from "./lyric-waveform";
+import { ReadinessPanel } from "./readiness-panel";
 
 interface Props {
   sessionId: string;
@@ -33,6 +34,7 @@ export function LyricsEditor({ sessionId }: Props) {
   const [durationMs, setDurationMs] = useState(0);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [saveVersion, setSaveVersion] = useState(0);
   const loaded = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const history = useRef<EditableLyricLine[][]>([]);
@@ -71,6 +73,7 @@ export function LyricsEditor({ sessionId }: Props) {
     const payload = (await response.json()) as { lines: EditableLyricLine[] };
     setLines(payload.lines);
     setDirty(false);
+    setSaveVersion((version) => version + 1);
     setStatus("എല്ലാ മാറ്റങ്ങളും സേവ് ചെയ്തു.");
   }, [lines, sessionId, token]);
 
@@ -208,6 +211,12 @@ export function LyricsEditor({ sessionId }: Props) {
             ഇപ്പോൾ സേവ് ചെയ്യുക
           </button>
         </header>
+
+        <ReadinessPanel
+          refreshKey={saveVersion}
+          sessionId={sessionId}
+          token={token}
+        />
 
         <section className="mb-6 rounded-xl border border-cyan-900 bg-[#0b1d23] p-4">
           <h2 className="text-xl font-semibold">വരി സമയം അടയാളപ്പെടുത്തുക</h2>
