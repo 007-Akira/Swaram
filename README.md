@@ -65,6 +65,15 @@ mode-restricted directories. Paths and permanent public URLs are never
 returned. Authorized playback supports HTTP byte ranges through the API.
 Sessions expire after `SESSION_RETENTION_HOURS` (24 hours by default).
 
+Run `swaram-cleanup --dry-run` to audit which expired session IDs would be
+removed, then run `swaram-cleanup` from a scheduler to delete their original
+uploads, generated derivatives, analysis artifacts, recordings, and database
+records. Cleanup is idempotent and retries sessions whose storage deletion
+previously failed. Audit logs contain identifiers and outcomes only—never
+lyrics, tokens, or file contents. Users should therefore treat uploads as
+temporary and export no data through Swaram; deletion can also be requested
+immediately through the session API.
+
 See
 [the architecture overview](docs/architecture.md) for component boundaries.
 PostgreSQL setup and migration commands are documented in

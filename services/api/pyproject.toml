@@ -20,5 +20,8 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["httpx>=0.28,<1", "mypy>=1.15,<2", "pytest>=8.3,<9", "ruff>=0.9,<1"]
 
+[project.scripts]
+swaram-cleanup = "swaram_api.cleanup:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/swaram_api"]
