@@ -112,10 +112,7 @@ describe("contracts", () => {
       34_730,
     );
     expect(
-      parseLyricsInput(
-        "1\n00:00:01,250 --> 00:00:02,500\nകൺമണി",
-        "srt",
-      )[0],
+      parseLyricsInput("1\n00:00:01,250 --> 00:00:02,500\nകൺമണി", "srt")[0],
     ).toMatchObject({ start_ms: 1250, end_ms: 2500 });
   });
 });

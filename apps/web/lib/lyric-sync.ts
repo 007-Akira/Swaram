@@ -6,7 +6,9 @@ export function deriveEndTimes(
 ): EditableLyricLine[] {
   const next = lines.map((line) => ({ ...line }));
   const timedIndices = next
-    .map((line, index) => (!line.is_stanza_break && line.start_ms !== null ? index : -1))
+    .map((line, index) =>
+      !line.is_stanza_break && line.start_ms !== null ? index : -1,
+    )
     .filter((index) => index >= 0);
   timedIndices.forEach((lineIndex, position) => {
     const followingIndex = timedIndices[position + 1];

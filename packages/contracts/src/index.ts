@@ -126,7 +126,8 @@ function fractionMilliseconds(value: string | undefined): number {
 
 function srtMilliseconds(value: string): number {
   const match = /^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})$/.exec(value);
-  if (!match) throw new LyricParseError("invalid_srt_time", "Invalid SRT timestamp");
+  if (!match)
+    throw new LyricParseError("invalid_srt_time", "Invalid SRT timestamp");
   const [, hours, minutes, seconds, milliseconds] = match;
   if (Number(minutes) >= 60 || Number(seconds) >= 60) {
     throw new LyricParseError("invalid_srt_time", "Invalid SRT timestamp");
@@ -161,10 +162,7 @@ export function parseLyricsInput(
   if (source.includes("\0")) {
     throw new LyricParseError("binary_lyrics", "Lyrics contain binary data");
   }
-  const normalized = source
-    .normalize("NFC")
-    .replace(/\r\n?/g, "\n")
-    .trim();
+  const normalized = source.normalize("NFC").replace(/\r\n?/g, "\n").trim();
   if (format === "txt") {
     const lines = normalized.split("\n").map((text) => ({
       text_nfc: text,
@@ -181,9 +179,7 @@ export function parseLyricsInput(
     const parsed: Array<{ start: number; text: string }> = [];
     for (const row of normalized.split("\n")) {
       if (/^\[[A-Za-z]+:/.test(row)) continue;
-      const match = /^((?:\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\])+)(.*)$/.exec(
-        row,
-      );
+      const match = /^((?:\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\])+)(.*)$/.exec(row);
       if (!match || !match[2]) {
         throw new LyricParseError("invalid_lrc", "Invalid LRC lyric line");
       }

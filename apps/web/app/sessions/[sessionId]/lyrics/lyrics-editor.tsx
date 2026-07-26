@@ -19,6 +19,7 @@ import {
   previousLyricIndex,
   resetTimings,
 } from "../../../../lib/lyric-sync";
+import { LyricWaveform } from "./lyric-waveform";
 
 interface Props {
   sessionId: string;
@@ -106,7 +107,8 @@ export function LyricsEditor({ sessionId }: Props) {
       })
       .then(async (session) => {
         const asset = session.assets.find(
-          (item) => item.kind === "original_audio" || item.kind === "instrumental",
+          (item) =>
+            item.kind === "original_audio" || item.kind === "instrumental",
         );
         if (!asset) return;
         const response = await fetch(
@@ -135,10 +137,26 @@ export function LyricsEditor({ sessionId }: Props) {
     setStatus("സേവ് ചെയ്യാത്ത മാറ്റങ്ങളുണ്ട്.");
   }, []);
 
-  const timingChange = useCallback((next: EditableLyricLine[]) => {
-    history.current.push(lines.map((line) => ({ ...line })));
-    change(next);
-  }, [change, lines]);
+  const timingChange = useCallback(
+    (next: EditableLyricLine[]) => {
+      history.current.push(lines.map((line) => ({ ...line })));
+      change(next);
+    },
+    [change, lines],
+  );
+
+  const waveformChange = useCallback((next: EditableLyricLine[]) => {
+    setLines((current) => {
+      history.current.push(current.map((line) => ({ ...line })));
+      return next;
+    });
+    setDirty(true);
+    setStatus("സേവ് ചെയ്യാത്ത മാർക്കർ മാറ്റങ്ങളുണ്ട്.");
+  }, []);
+  const waveformError = useCallback(
+    (message: string) => setStatus(message),
+    [],
+  );
 
   const markCurrentLine = useCallback(() => {
     const audio = audioRef.current;
@@ -147,7 +165,9 @@ export function LyricsEditor({ sessionId }: Props) {
       return;
     }
     try {
-      timingChange(markLineAt(lines, selectedLine, audio.currentTime * 1000, durationMs));
+      timingChange(
+        markLineAt(lines, selectedLine, audio.currentTime * 1000, durationMs),
+      );
       setSelectedLine(nextLyricIndex(lines, selectedLine));
     } catch {
       setStatus("മാർക്കുകൾ സമയക്രമത്തിൽ ആയിരിക്കണം.");
@@ -157,7 +177,10 @@ export function LyricsEditor({ sessionId }: Props) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const element = event.target as HTMLElement | null;
-      if (event.code === "Space" && !["TEXTAREA", "INPUT"].includes(element?.tagName ?? "")) {
+      if (
+        event.code === "Space" &&
+        !["TEXTAREA", "INPUT"].includes(element?.tagName ?? "")
+      ) {
         event.preventDefault();
         markCurrentLine();
       }
@@ -211,11 +234,24 @@ export function LyricsEditor({ sessionId }: Props) {
             ref={audioRef}
             src={audioUrl ?? undefined}
           />
+          {audioUrl && (
+            <div className="mt-4">
+              <LyricWaveform
+                audioUrl={audioUrl}
+                lines={lines}
+                onError={waveformError}
+                onLinesChange={waveformChange}
+                onSelectLine={setSelectedLine}
+              />
+            </div>
+          )}
           <p className="mt-2 text-sm text-cyan-200">
             നിലവിലെ വരി: {selectedLine + 1}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button onClick={markCurrentLine} type="button">വരി അടയാളപ്പെടുത്തുക</button>
+            <button onClick={markCurrentLine} type="button">
+              വരി അടയാളപ്പെടുത്തുക
+            </button>
             <button
               onClick={() => {
                 const previous = history.current.pop();
@@ -226,13 +262,17 @@ export function LyricsEditor({ sessionId }: Props) {
               Undo
             </button>
             <button
-              onClick={() => setSelectedLine(previousLyricIndex(lines, selectedLine))}
+              onClick={() =>
+                setSelectedLine(previousLyricIndex(lines, selectedLine))
+              }
               type="button"
             >
               ← മുൻ വരി
             </button>
             <button
-              onClick={() => setSelectedLine(nextLyricIndex(lines, selectedLine))}
+              onClick={() =>
+                setSelectedLine(nextLyricIndex(lines, selectedLine))
+              }
               type="button"
             >
               അടുത്ത വരി →
@@ -242,20 +282,27 @@ export function LyricsEditor({ sessionId }: Props) {
                 key={delta}
                 onClick={() => {
                   try {
-                    timingChange(nudgeLine(lines, selectedLine, delta, durationMs));
+                    timingChange(
+                      nudgeLine(lines, selectedLine, delta, durationMs),
+                    );
                   } catch {
                     setStatus("മാർക്കുകൾ തമ്മിൽ കടക്കാനാവില്ല.");
                   }
                 }}
                 type="button"
               >
-                {delta > 0 ? "+" : ""}{delta} ms
+                {delta > 0 ? "+" : ""}
+                {delta} ms
               </button>
             ))}
             <button
               onClick={() => {
                 const line = lines[selectedLine];
-                if (audioRef.current && line?.start_ms !== null && line?.start_ms !== undefined) {
+                if (
+                  audioRef.current &&
+                  line?.start_ms !== null &&
+                  line?.start_ms !== undefined
+                ) {
                   audioRef.current.currentTime = line.start_ms / 1000;
                   void audioRef.current.play();
                 }
@@ -264,7 +311,10 @@ export function LyricsEditor({ sessionId }: Props) {
             >
               വരി വീണ്ടും കേൾക്കുക
             </button>
-            <button onClick={() => timingChange(resetTimings(lines))} type="button">
+            <button
+              onClick={() => timingChange(resetTimings(lines))}
+              type="button"
+            >
               സമയം റീസെറ്റ് ചെയ്യുക
             </button>
           </div>
@@ -301,25 +351,44 @@ export function LyricsEditor({ sessionId }: Props) {
                 />
               </label>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button onClick={() => change(insertLine(lines, index))} type="button">
+                <button
+                  onClick={() => change(insertLine(lines, index))}
+                  type="button"
+                >
                   + വരി
                 </button>
                 <button
-                  onClick={() => change(splitLine(lines, index, Math.floor(line.text.length / 2)))}
+                  onClick={() =>
+                    change(
+                      splitLine(lines, index, Math.floor(line.text.length / 2)),
+                    )
+                  }
                   type="button"
                 >
                   വിഭജിക്കുക
                 </button>
-                <button onClick={() => change(mergeWithNext(lines, index))} type="button">
+                <button
+                  onClick={() => change(mergeWithNext(lines, index))}
+                  type="button"
+                >
                   അടുത്തതുമായി ചേർക്കുക
                 </button>
-                <button onClick={() => change(moveLine(lines, index, -1))} type="button">
+                <button
+                  onClick={() => change(moveLine(lines, index, -1))}
+                  type="button"
+                >
                   ↑
                 </button>
-                <button onClick={() => change(moveLine(lines, index, 1))} type="button">
+                <button
+                  onClick={() => change(moveLine(lines, index, 1))}
+                  type="button"
+                >
                   ↓
                 </button>
-                <button onClick={() => change(deleteLine(lines, index))} type="button">
+                <button
+                  onClick={() => change(deleteLine(lines, index))}
+                  type="button"
+                >
                   നീക്കുക
                 </button>
               </div>

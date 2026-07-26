@@ -69,10 +69,7 @@ export function moveLine(
   const destination = index + direction;
   if (destination < 0 || destination >= lines.length) return [...lines];
   const result = [...lines];
-  [result[index], result[destination]] = [
-    result[destination]!,
-    result[index]!,
-  ];
+  [result[index], result[destination]] = [result[destination]!, result[index]!];
   return result;
 }
 

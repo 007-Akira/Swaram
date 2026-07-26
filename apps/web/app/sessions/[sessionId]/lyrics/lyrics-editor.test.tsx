@@ -41,11 +41,17 @@ describe("LyricsEditor", () => {
     fireEvent.change(screen.getByLabelText("വരി 1"), {
       target: { value: "മഴവില്ലിന്നേഴാം വർണ്ണം" },
     });
-    expect(screen.getByText("സേവ് ചെയ്യാത്ത മാറ്റങ്ങളുണ്ട്.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "ഇപ്പോൾ സേവ് ചെയ്യുക" }));
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/sessions/session-1/lyrics"),
-      expect.objectContaining({ method: "PUT" }),
-    ));
+    expect(
+      screen.getByText("സേവ് ചെയ്യാത്ത മാറ്റങ്ങളുണ്ട്."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "ഇപ്പോൾ സേവ് ചെയ്യുക" }),
+    );
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/sessions/session-1/lyrics"),
+        expect.objectContaining({ method: "PUT" }),
+      ),
+    );
   });
 });

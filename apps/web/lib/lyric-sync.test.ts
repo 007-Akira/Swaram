@@ -31,6 +31,8 @@ describe("line synchronization", () => {
     );
     expect(() => nudgeLine(lines, 1, -1100, 3000)).toThrow();
     expect(nudgeLine(lines, 1, 100, 3000)[1]?.start_ms).toBe(2100);
-    expect(resetTimings(lines).every((line) => line.start_ms === null)).toBe(true);
+    expect(resetTimings(lines).every((line) => line.start_ms === null)).toBe(
+      true,
+    );
   });
 });
