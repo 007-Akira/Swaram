@@ -38,7 +38,9 @@ describe("AttemptReport", () => {
     );
     expect(screen.getByText("88")).toBeInTheDocument();
     expect(screen.getByText(/evidence confidence: 75%/i)).toBeInTheDocument();
-    expect(screen.getByText("Your pitch is slightly high.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Your pitch is slightly high."),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Practice this line again" }),
     ).toHaveAttribute("href", "/sessions/session-1/practice?seek=1000");

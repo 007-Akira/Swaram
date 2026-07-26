@@ -49,9 +49,7 @@ describe("HeadphoneCalibration", () => {
         onReady={onReady}
       />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Allow microphone" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Allow microphone" }));
     fireEvent.click(
       await screen.findByRole("button", { name: "Check leakage" }),
     );
@@ -60,9 +58,7 @@ describe("HeadphoneCalibration", () => {
     fireEvent.click(
       screen.getByRole("checkbox", { name: /for testing only/i }),
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: "Check leakage" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Check leakage" }));
     await vi.waitFor(() => expect(onReady).toHaveBeenCalledOnce());
     expect(calibrateLeakage).toHaveBeenLastCalledWith(true);
   });

@@ -56,12 +56,8 @@ describe("LyricsEditor", () => {
     fireEvent.change(screen.getByLabelText("Line 1"), {
       target: { value: "മഴവില്ലിന്നേഴാം വർണ്ണം" },
     });
-    expect(
-      screen.getByText("You have unsaved changes."),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Save now" }),
-    );
+    expect(screen.getByText("You have unsaved changes.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save now" }));
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining("/sessions/session-1/lyrics"),
