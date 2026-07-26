@@ -46,6 +46,7 @@ class FFmpegLimits:
     command_timeout_seconds: float = 120
     playback_sample_rate_hz: int = 44_100
     analysis_sample_rate_hz: int = 22_050
+    maximum_decoded_bytes: int = 200 * 1024 * 1024
 
 
 class IsolatedAudioWorkspace:
@@ -115,6 +116,8 @@ class FFmpegNormalizer:
                 self._ffprobe,
                 "-v",
                 "error",
+                "-protocol_whitelist",
+                "file,crypto,data",
                 "-show_entries",
                 "format=format_name,duration",
                 "-show_entries",
@@ -164,6 +167,8 @@ class FFmpegNormalizer:
             "-hide_banner",
             "-loglevel",
             "error",
+            "-protocol_whitelist",
+            "file,crypto,data",
             "-threads",
             "1",
             "-i",
@@ -200,4 +205,12 @@ class FFmpegNormalizer:
             ],
             "audio_decode_failed",
         )
+        decoded_size = playback.stat().st_size + analysis.stat().st_size
+        if decoded_size > self._limits.maximum_decoded_bytes:
+            playback.unlink(missing_ok=True)
+            analysis.unlink(missing_ok=True)
+            raise AudioProcessingError(
+                "decoded_audio_too_large",
+                "Decoded audio exceeds its resource limit",
+            )
         return NormalizedAudio(playback, analysis, probe)

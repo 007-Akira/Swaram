@@ -20,7 +20,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from swaram_contracts import AnalysisPackageV1
 
-from swaram_api.audio_validation import AudioValidationError, inspect_audio
+from swaram_api.audio_validation import (
+    AudioValidationError,
+    inspect_audio,
+    validate_upload_identity,
+)
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, ErrorResponse
 from swaram_api.lyric_parser import LyricParseError, decode_lyrics, parse_lyrics
@@ -184,6 +188,12 @@ def _copy_bounded(upload: UploadFile, target: Path, maximum: int) -> int:
     return total
 
 
+def _safe_filename(value: str | None) -> str:
+    basename = Path(value or "audio").name
+    cleaned = "".join(character for character in basename if character.isprintable())
+    return unicodedata.normalize("NFC", cleaned)[:255] or "audio"
+
+
 @router.post(
     "/sessions/{session_id}/audio",
     response_model=AssetSummary,
@@ -197,12 +207,30 @@ async def upload_audio(
     audio: Annotated[UploadFile, File()],
 ) -> AssetSummary:
     settings = get_settings()
+    existing_assets = sum(
+        asset.kind == AssetKind.ORIGINAL_AUDIO for asset in practice_session.assets
+    )
+    if existing_assets >= settings.max_audio_assets_per_session:
+        raise ApiError(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "audio_asset_limit_reached",
+            "This session has reached its audio upload limit",
+        )
+    safe_filename = _safe_filename(audio.filename)
     with tempfile.TemporaryDirectory(prefix="swaram-validate-") as directory:
         temporary_path = Path(directory) / "upload"
         _copy_bounded(audio, temporary_path, settings.upload_max_bytes)
         try:
             metadata = inspect_audio(
-                temporary_path, settings.ffprobe_binary, settings.audio_max_duration_seconds
+                temporary_path,
+                settings.ffprobe_binary,
+                settings.audio_max_duration_seconds,
+                settings.decoded_audio_max_bytes,
+            )
+            validate_upload_identity(
+                safe_filename,
+                audio.content_type or "",
+                metadata.media_type,
             )
         except AudioValidationError as error:
             raise ApiError(
@@ -214,7 +242,7 @@ async def upload_audio(
         session_id=practice_session.id,
         kind=AssetKind.ORIGINAL_AUDIO,
         object_key=stored.object_key,
-        original_filename=Path(audio.filename or "audio").name,
+        original_filename=safe_filename,
         media_type=metadata.media_type,
         size_bytes=stored.size_bytes,
         checksum_sha256=stored.checksum_sha256,

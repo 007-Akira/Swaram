@@ -11,6 +11,7 @@ from swaram_api.attempts import router as attempts_router
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, api_error_handler
 from swaram_api.jobs import router as jobs_router
+from swaram_api.security import InMemoryRateLimitMiddleware, SecurityHeadersMiddleware
 from swaram_api.sessions import router as sessions_router
 from swaram_api.settings import Settings, get_settings
 
@@ -32,6 +33,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    application.add_middleware(SecurityHeadersMiddleware)
+    application.add_middleware(
+        InMemoryRateLimitMiddleware,
+        requests=active_settings.rate_limit_requests,
+        window_seconds=active_settings.rate_limit_window_seconds,
     )
 
     @application.get("/health", response_model=HealthResponse)

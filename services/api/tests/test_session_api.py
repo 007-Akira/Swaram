@@ -95,7 +95,7 @@ async def test_audio_upload_validates_content_and_supports_private_ranges(
     response = await api_client.post(
         f"/api/v1/sessions/{session_id}/audio",
         headers=auth(token),
-        files={"audio": ("misleading.wav", io.BytesIO(b"valid audio"), "application/octet-stream")},
+        files={"audio": ("valid.mp3", io.BytesIO(b"valid audio"), "audio/mpeg")},
     )
     assert response.status_code == 201
     asset_id = response.json()["id"]
@@ -148,6 +148,32 @@ async def test_invalid_and_oversized_audio_have_stable_errors(
     )
     assert oversized.status_code == 413
     assert oversized.json()["error"]["code"] == "upload_too_large"
+
+
+@pytest.mark.anyio
+async def test_audio_upload_rejects_mime_and_extension_spoofing(
+    api_client: httpx.AsyncClient, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "swaram_api.sessions.inspect_audio",
+        lambda *_args: AudioMetadata(media_type="audio/mpeg", duration_ms=1_200),
+    )
+    session_id, token = await create_private_session(api_client)
+    endpoint = f"/api/v1/sessions/{session_id}/audio"
+    wrong_extension = await api_client.post(
+        endpoint,
+        headers=auth(token),
+        files={"audio": ("fake.wav", b"decoded mp3", "audio/mpeg")},
+    )
+    wrong_mime = await api_client.post(
+        endpoint,
+        headers=auth(token),
+        files={"audio": ("song.mp3", b"decoded mp3", "application/octet-stream")},
+    )
+    assert wrong_extension.status_code == 422
+    assert wrong_mime.status_code == 422
+    assert wrong_extension.json()["error"]["code"] == "invalid_audio"
+    assert wrong_mime.json()["error"]["code"] == "invalid_audio"
 
 
 @pytest.mark.anyio

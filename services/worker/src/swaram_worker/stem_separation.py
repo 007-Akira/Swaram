@@ -69,6 +69,8 @@ class HTDemucsSeparator:
                 self._device,
                 "--out",
                 str(output_root),
+                "--jobs",
+                "1",
                 str(staged_input),
             ]
             progress("stem_separation_running", 30)

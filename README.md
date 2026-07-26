@@ -56,8 +56,11 @@ and exit cleanly with `pnpm worker:once`.
 access token once. Send that secret as `X-Session-Token` for every session,
 upload, playback, and deletion request. The database stores only its SHA-256
 hash. Audio uploads are limited by `UPLOAD_MAX_BYTES` and
-`AUDIO_MAX_DURATION_SECONDS`, then inspected with FFprobe for actual
-decodability as MP3, WAV, M4A, or FLAC. TXT/LRC/SRT lyrics must be UTF-8 and
+`AUDIO_MAX_DURATION_SECONDS`; decoded PCM is limited by
+`DECODED_AUDIO_MAX_BYTES`, and each session is limited by
+`MAX_AUDIO_ASSETS_PER_SESSION`. FFprobe verifies actual decodability and checks
+that detected MP3, WAV, M4A, or FLAC content agrees with the declared MIME type
+and extension. TXT/LRC/SRT lyrics must be UTF-8 and
 are normalized to Unicode NFC.
 
 Objects are stored under `PRIVATE_DATA_ROOT/private` with random keys and
@@ -76,6 +79,8 @@ immediately through the session API.
 
 See
 [the architecture overview](docs/architecture.md) for component boundaries.
+Security boundaries, concrete controls, deployment requirements, and residual
+risks are recorded in [the threat model](docs/threat-model.md).
 PostgreSQL setup and migration commands are documented in
 [the database guide](docs/database.md).
 
