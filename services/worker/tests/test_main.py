@@ -20,6 +20,7 @@ def test_worker_performs_one_idle_poll() -> None:
 
 def test_once_command_line_flag() -> None:
     assert build_parser().parse_args(["--once"]).once is True
+    assert build_parser().parse_args(["--healthcheck"]).healthcheck is True
 
 
 def test_claimed_job_is_dispatched_to_pipeline() -> None:
@@ -30,3 +31,11 @@ def test_claimed_job_is_dispatched_to_pipeline() -> None:
     processor = Mock()
     assert Worker(engine, queue=queue, processor=processor).poll_once() == job
     processor.assert_called_once_with(job)
+
+
+def test_worker_stops_without_polling_after_shutdown_request() -> None:
+    engine = MagicMock(spec=Engine)
+    queue = Mock()
+    worker = Worker(engine, queue=queue)
+    worker.run(0.01, sleep=Mock(), stop_requested=lambda: True)
+    queue.claim_next.assert_not_called()

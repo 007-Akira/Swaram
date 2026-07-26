@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, text
@@ -52,12 +53,14 @@ class AnalysisPipeline:
         queue: PostgreSQLJobQueue,
         normalizer: FFmpegNormalizer,
         separator: HTDemucsSeparator,
+        workspace_root: Path | None = None,
     ) -> None:
         self._engine = engine
         self._storage = storage
         self._queue = queue
         self._normalizer = normalizer
         self._separator = separator
+        self._workspace_root = workspace_root
 
     def _load_input(self, job: ClaimedJob) -> JobInput:
         with self._engine.connect() as connection:
@@ -231,7 +234,7 @@ class AnalysisPipeline:
                 self._queue.succeed(job.id)
                 return existing
             source = self._storage.path_for(job.session_id, input_data.object_key)
-            with IsolatedAudioWorkspace() as workspace:
+            with IsolatedAudioWorkspace(self._workspace_root) as workspace:
                 self._progress(job, "normalizing", 10)
                 normalized = self._normalizer.normalize(source, workspace.path)
                 stems = self._separator.separate(

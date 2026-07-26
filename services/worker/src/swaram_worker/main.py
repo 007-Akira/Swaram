@@ -1,9 +1,14 @@
 import argparse
+import shutil
+import signal
 import socket
+import tempfile
 import time
 from collections.abc import Callable, Sequence
+from pathlib import Path
+from threading import Event
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 
 from swaram_worker.analysis_pipeline import AnalysisPipeline
 from swaram_worker.audio_normalization import FFmpegNormalizer
@@ -36,11 +41,26 @@ class Worker:
         return job
 
     def run(
-        self, poll_interval_seconds: float, sleep: Callable[[float], None] = time.sleep
+        self,
+        poll_interval_seconds: float,
+        sleep: Callable[[float], None] = time.sleep,
+        stop_requested: Callable[[], bool] = lambda: False,
     ) -> None:
-        while True:
+        while not stop_requested():
             self.poll_once()
-            sleep(poll_interval_seconds)
+            if not stop_requested():
+                sleep(poll_interval_seconds)
+
+
+def readiness_check(engine: Engine, private_data_root: Path, temp_root: Path | None) -> None:
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    private_data_root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="swaram-ready-", dir=temp_root):
+        pass
+    for binary in ("ffmpeg", "ffprobe"):
+        if shutil.which(binary) is None:
+            raise RuntimeError(f"{binary} is unavailable")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,6 +70,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="perform one idle PostgreSQL polling cycle and exit",
     )
+    parser.add_argument(
+        "--healthcheck",
+        action="store_true",
+        help="verify database, storage, temporary workspace, and audio tooling",
+    )
     return parser
 
 
@@ -57,6 +82,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     settings = WorkerSettings()
     engine = create_engine(settings.database_url, pool_pre_ping=True)
+    if args.healthcheck:
+        try:
+            readiness_check(engine, settings.private_data_root, settings.worker_temp_root)
+        finally:
+            engine.dispose()
+        return
     worker_id = f"{socket.gethostname()}-{id(engine)}"
     queue = PostgreSQLJobQueue(engine, worker_id)
     pipeline = AnalysisPipeline(
@@ -65,12 +96,27 @@ def main(argv: Sequence[str] | None = None) -> None:
         queue,
         FFmpegNormalizer(),
         HTDemucsSeparator(device=settings.stem_device),
+        settings.worker_temp_root,
     )
     worker = Worker(engine, queue=queue, processor=pipeline.process)
+    stopping = Event()
+
+    def request_stop(_signal: int, _frame: object) -> None:
+        stopping.set()
+
+    previous_handlers = {
+        signal_number: signal.signal(signal_number, request_stop)
+        for signal_number in (signal.SIGINT, signal.SIGTERM)
+    }
     try:
         if args.once:
             worker.poll_once()
         else:
-            worker.run(settings.worker_poll_interval_seconds)
+            worker.run(
+                settings.worker_poll_interval_seconds,
+                stop_requested=stopping.is_set,
+            )
     finally:
+        for signal_number, previous in previous_handlers.items():
+            signal.signal(signal_number, previous)
         engine.dispose()

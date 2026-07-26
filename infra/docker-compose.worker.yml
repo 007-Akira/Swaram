@@ -1,0 +1,80 @@
+name: swaram-worker
+
+x-worker-base: &worker-base
+  build:
+    context: ..
+    dockerfile: services/worker/Dockerfile
+  environment:
+    APP_ENV: production
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-swaram}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-swaram}
+    PRIVATE_DATA_ROOT: /data
+    WORKER_TEMP_ROOT: /var/tmp/swaram
+    STEM_DEVICE: cpu
+  depends_on:
+    postgres:
+      condition: service_healthy
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+    - /var/tmp/swaram:rw,noexec,nosuid,nodev,size=2g,uid=10001,gid=10001
+  volumes:
+    - swaram_private_data:/data
+  networks:
+    - worker_internal
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 256
+  init: true
+  stop_grace_period: 20m
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-swaram}
+      POSTGRES_USER: ${POSTGRES_USER:-swaram}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - swaram_postgres_data:/var/lib/postgresql/data
+    networks:
+      - worker_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker-cpu:
+    <<: *worker-base
+    profiles: [cpu]
+    cpus: 4
+    mem_limit: 8g
+
+  worker-gpu:
+    <<: *worker-base
+    profiles: [gpu]
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-swaram}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-swaram}
+      PRIVATE_DATA_ROOT: /data
+      WORKER_TEMP_ROOT: /var/tmp/swaram
+      STEM_DEVICE: cuda
+    cpus: 4
+    mem_limit: 12g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+networks:
+  worker_internal:
+    internal: true
+
+volumes:
+  swaram_postgres_data:
+  swaram_private_data:

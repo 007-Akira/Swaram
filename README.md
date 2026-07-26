@@ -49,6 +49,8 @@ readiness are available at <http://localhost:8000/health> and
 
 The worker normally polls continuously. Verify one PostgreSQL-backed idle cycle
 and exit cleanly with `pnpm worker:once`.
+The hardened non-root CPU/GPU container profiles and orchestration health check
+are documented in [the worker deployment guide](docs/worker-deployment.md).
 
 ## Private session API
 

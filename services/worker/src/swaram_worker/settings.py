@@ -18,6 +18,7 @@ class WorkerSettings(BaseSettings):
     database_url: str = DEVELOPMENT_DATABASE_URL
     worker_poll_interval_seconds: float = 2.0
     private_data_root: Path = Path("data")
+    worker_temp_root: Path | None = None
     stem_device: Literal["auto", "cpu", "cuda", "mps"] = "cpu"
 
     @model_validator(mode="after")
