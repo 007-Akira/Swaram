@@ -60,6 +60,8 @@ export function PracticeSession({ sessionId }: Props) {
   const [loopStartMs, setLoopStartMs] = useState<number | null>(null);
   const [loopEndMs, setLoopEndMs] = useState<number | null>(null);
   const [countIn, setCountIn] = useState(false);
+  const [countInActive, setCountInActive] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [loopStatus, setLoopStatus] = useState("ലൂപ്പ് ഓഫാണ്.");
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
@@ -204,14 +206,24 @@ export function PracticeSession({ sessionId }: Props) {
         setPitch(frame);
       }
     });
-    const unsubscribeLoop = controller.onLoopBoundary(() => {
+    const unsubscribeLoop = controller.onLoopBoundary((_region, action) => {
       livePoints.current.length = 0;
-      setLoopStatus("ലൂപ്പ് വീണ്ടും ആരംഭിച്ചു.");
+      setCountInActive(action === "begin_count_in");
+      setLoopStatus(
+        action === "begin_count_in"
+          ? "കൗണ്ട്-ഇൻ നടക്കുന്നു…"
+          : "ലൂപ്പ് വീണ്ടും ആരംഭിച്ചു.",
+      );
+    });
+    const unsubscribeCompleted = controller.onCompleted(() => {
+      setCountInActive(false);
+      setCompleted(true);
     });
     return () => {
       unsubscribeState();
       unsubscribePitch();
       unsubscribeLoop();
+      unsubscribeCompleted();
     };
   }, [controller]);
 
@@ -234,6 +246,38 @@ export function PracticeSession({ sessionId }: Props) {
     return () => cancelAnimationFrame(animationFrame);
   }, [controller, ready]);
 
+  useEffect(() => {
+    if (!controller || !ready) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (controller.getState().status === "playing") controller.pause();
+        else if (controller.getState().canPlay) void controller.play();
+      } else if (
+        event.key.toLowerCase() === "r" &&
+        ["playing", "paused"].includes(controller.getState().status)
+      ) {
+        void controller.restart();
+      } else if (event.key === "Escape") {
+        void controller.stop();
+      } else if (event.key === "[") {
+        setLoopStartMs(controller.getPracticeTime().comparisonTimeMs);
+      } else if (event.key === "]") {
+        setLoopEndMs(controller.getPracticeTime().comparisonTimeMs);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [controller, ready]);
+
   const applyLoop = (startMs: number, endMs: number) => {
     if (!controller) return;
     try {
@@ -254,7 +298,22 @@ export function PracticeSession({ sessionId }: Props) {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl p-6">
-      {!ready ? (
+      {completed ? (
+        <section aria-label="പരിശീലനം പൂർത്തിയായി">
+          <h1 className="text-3xl font-semibold">പരിശീലനം പൂർത്തിയായി</h1>
+          <p className="mt-3">ഈ പരിശീലന റൗണ്ട് അവസാനിച്ചു.</p>
+          <button
+            className="mt-5"
+            onClick={() => {
+              setCompleted(false);
+              setReady(false);
+            }}
+            type="button"
+          >
+            വീണ്ടും പരിശീലിക്കുക
+          </button>
+        </section>
+      ) : !ready ? (
         <HeadphoneCalibration
           controller={controller}
           onReady={() => {
@@ -265,6 +324,16 @@ export function PracticeSession({ sessionId }: Props) {
       ) : (
         <section aria-label="പരിശീലന നിയന്ത്രണങ്ങൾ">
           <h1 className="text-3xl font-semibold">സ്വരം പരിശീലനം</h1>
+          <p aria-live="polite" className="mt-2 font-semibold">
+            അവസ്ഥ:{" "}
+            {countInActive
+              ? "കൗണ്ട്-ഇൻ"
+              : sessionState.status === "playing"
+                ? "പരിശീലിക്കുന്നു"
+                : sessionState.status === "paused"
+                  ? "ഇടവേള"
+                  : "തയ്യാർ"}
+          </p>
           <p className="mt-3">
             സമയം: {(songTimeMs / 1_000).toFixed(1)} സെക്കൻഡ്
           </p>
@@ -431,6 +500,10 @@ export function PracticeSession({ sessionId }: Props) {
               നിർത്തുക
             </button>
           </div>
+          <p className="mt-4 text-sm text-slate-300">
+            കീബോർഡ്: Space പ്ലേ/ഇടവേള, R വീണ്ടും തുടങ്ങുക, [ ഇൻ, ] ഔട്ട്, Escape
+            നിർത്തുക.
+          </p>
         </section>
       )}
     </main>

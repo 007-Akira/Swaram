@@ -10,3 +10,27 @@
 body {
   margin: 0;
 }
+
+button,
+a,
+input {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid #67e8f9;
+  outline-offset: 3px;
+}
+
+button {
+  min-height: 44px;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.85rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}

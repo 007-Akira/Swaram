@@ -128,7 +128,11 @@ type FrameListener = (
   audioTimeMs: number,
 ) => void;
 type PitchListener = (frame: LivePitchFrame) => void;
-type LoopListener = (region: LoopRegion) => void;
+type LoopListener = (
+  region: LoopRegion,
+  action: "begin_count_in" | "restart",
+) => void;
+type CompletionListener = () => void;
 
 const LEGAL_TRANSITIONS: Readonly<
   Record<AudioSessionStatus, ReadonlySet<AudioSessionStatus>>
@@ -205,6 +209,7 @@ export class AudioSessionController {
   private readonly frameListeners = new Set<FrameListener>();
   private readonly pitchListeners = new Set<PitchListener>();
   private readonly loopListeners = new Set<LoopListener>();
+  private readonly completionListeners = new Set<CompletionListener>();
   private readonly pitchProcessor: LivePitchProcessor;
   private readonly visibilityListener = () => {
     if (this.environment?.isDocumentHidden()) {
@@ -259,6 +264,11 @@ export class AudioSessionController {
     return () => this.loopListeners.delete(listener);
   }
 
+  onCompleted(listener: CompletionListener): () => void {
+    this.completionListeners.add(listener);
+    return () => this.completionListeners.delete(listener);
+  }
+
   async requestPermission(): Promise<void> {
     this.assertUsable();
     if (
@@ -301,6 +311,16 @@ export class AudioSessionController {
       }
       this.playback = this.environment.createPlaybackElement();
       this.playback.src = this.options.playbackUrl;
+      this.playback.addEventListener(
+        "ended",
+        () => {
+          if (this.state.status !== "playing") return;
+          void this.stop().then(() => {
+            for (const listener of this.completionListeners) listener();
+          });
+        },
+        { once: false },
+      );
       this.practiceClock = new PracticeClock(
         this.playback,
         this.latencyOffsetMs,
@@ -453,7 +473,9 @@ export class AudioSessionController {
     if (action.type === "begin_count_in") this.playback.pause();
     this.seek(action.seekToMs);
     this.pitchProcessor.reset();
-    for (const listener of this.loopListeners) listener(this.loopRegion);
+    for (const listener of this.loopListeners) {
+      listener(this.loopRegion, action.type);
+    }
     if (action.type === "restart") void this.playback.play();
   }
 
@@ -551,6 +573,7 @@ export class AudioSessionController {
     this.frameListeners.clear();
     this.pitchListeners.clear();
     this.loopListeners.clear();
+    this.completionListeners.clear();
     this.disposed = true;
   }
 

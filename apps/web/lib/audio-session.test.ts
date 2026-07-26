@@ -39,6 +39,10 @@ function environment() {
     }),
     close: vi.fn().mockResolvedValue(undefined),
   };
+  const playbackListeners = new Map<
+    string,
+    EventListenerOrEventListenerObject
+  >();
   const playback = {
     src: "",
     currentTime: 0,
@@ -49,7 +53,11 @@ function environment() {
     playbackRate: 1,
     preservesPitch: false,
     volume: 1,
-    addEventListener: vi.fn(),
+    addEventListener: vi.fn(
+      (type: string, listener: EventListenerOrEventListenerObject) => {
+        playbackListeners.set(type, listener);
+      },
+    ),
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
     load: vi.fn(),
@@ -78,6 +86,11 @@ function environment() {
     context,
     playback,
     port,
+    dispatchPlaybackEvent(type: string) {
+      const listener = playbackListeners.get(type);
+      if (typeof listener === "function") listener(new Event(type));
+      else listener?.handleEvent(new Event(type));
+    },
     setHidden(value: boolean) {
       hidden = value;
     },
@@ -249,6 +262,18 @@ describe("AudioSessionController", () => {
     controller.processLoop(10_000);
     expect(browser.playback.currentTime).toBe(1);
     expect(boundaries).toHaveBeenCalledOnce();
+  });
+
+  it("reports natural completion and releases the microphone", async () => {
+    const browser = environment();
+    const controller = await readyController(browser);
+    const completed = vi.fn();
+    controller.onCompleted(completed);
+    await controller.play();
+    browser.dispatchPlaybackEvent("ended");
+    await vi.waitFor(() => expect(completed).toHaveBeenCalledOnce());
+    expect(controller.getState().status).toBe("stopped");
+    expect(browser.track.stop).toHaveBeenCalledOnce();
   });
 
   it("releases the microphone and every audio node exactly once", async () => {
