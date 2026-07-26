@@ -12,6 +12,12 @@ import {
   type AudioSessionState,
 } from "../../../../lib/audio-session";
 import { HeadphoneCalibration } from "./headphone-calibration";
+import {
+  playbackModeAvailability,
+  preferredPlaybackMode,
+  type PlaybackMode,
+  type PlaybackModeAvailability,
+} from "./playback-modes";
 import { PitchCanvas } from "./pitch-canvas";
 import type { ContourPoint } from "./pitch-renderer";
 
@@ -39,6 +45,11 @@ export function PracticeSession({ sessionId }: Props) {
   const [songTimeMs, setSongTimeMs] = useState(0);
   const [pitch, setPitch] = useState<LivePitchFrame | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisPackageV1 | null>(null);
+  const [modes, setModes] = useState<readonly PlaybackModeAvailability[]>([]);
+  const [activeMode, setActiveMode] = useState<PlaybackMode | null>(null);
+  const [playbackSources, setPlaybackSources] = useState<
+    Partial<Record<PlaybackMode, string>>
+  >({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
@@ -75,7 +86,7 @@ export function PracticeSession({ sessionId }: Props) {
         active = false;
       };
     }
-    let objectUrl: string | null = null;
+    const objectUrls: string[] = [];
     let audioController: AudioSessionController | null = null;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     void fetch(`${apiUrl}/api/v1/sessions/${sessionId}`, {
@@ -88,34 +99,51 @@ export function PracticeSession({ sessionId }: Props) {
         };
       })
       .then(async ({ assets }) => {
-        const asset =
-          assets.find(({ kind }) => kind === "instrumental") ??
-          assets.find(({ kind }) => kind === "original_audio");
-        if (!asset) throw new Error("playback unavailable");
-        const [playbackResponse, analysisResponse] = await Promise.all([
-          fetch(
-            `${apiUrl}/api/v1/sessions/${sessionId}/assets/${asset.id}/playback`,
-            { headers: { "X-Session-Token": token } },
-          ),
+        const availability = playbackModeAvailability(assets);
+        const preferred = preferredPlaybackMode(availability);
+        if (!preferred) throw new Error("playback unavailable");
+        const availableModes = availability.filter(
+          (mode): mode is PlaybackModeAvailability & { assetId: string } =>
+            mode.available && mode.assetId !== null,
+        );
+        const [analysisResponse, modeResponses] = await Promise.all([
           fetch(`${apiUrl}/api/v1/sessions/${sessionId}/analysis`, {
             headers: { "X-Session-Token": token },
           }),
+          Promise.all(
+            availableModes.map(async (mode) => {
+              const response = await fetch(
+                `${apiUrl}/api/v1/sessions/${sessionId}/assets/${mode.assetId}/playback`,
+                { headers: { "X-Session-Token": token } },
+              );
+              if (!response.ok) throw new Error("playback unavailable");
+              const objectUrl = URL.createObjectURL(await response.blob());
+              objectUrls.push(objectUrl);
+              return [mode.mode, objectUrl] as const;
+            }),
+          ),
         ]);
-        if (!playbackResponse.ok) throw new Error("playback unavailable");
         if (!analysisResponse.ok) throw new Error("analysis unavailable");
         const parsedAnalysis = AnalysisPackageV1Schema.parse(
           await analysisResponse.json(),
         );
-        objectUrl = URL.createObjectURL(await playbackResponse.blob());
         if (!active) {
-          URL.revokeObjectURL(objectUrl);
-          objectUrl = null;
+          for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+          objectUrls.length = 0;
           return;
         }
+        const sources = Object.fromEntries(modeResponses) as Partial<
+          Record<PlaybackMode, string>
+        >;
+        const initialSource = sources[preferred];
+        if (!initialSource) throw new Error("playback unavailable");
         audioController = new AudioSessionController({
-          playbackUrl: objectUrl,
+          playbackUrl: initialSource,
         });
         setAnalysis(parsedAnalysis);
+        setModes(availability);
+        setPlaybackSources(sources);
+        setActiveMode(preferred);
         setController(audioController);
       })
       .catch(() => {
@@ -124,7 +152,7 @@ export function PracticeSession({ sessionId }: Props) {
     return () => {
       active = false;
       if (audioController) void audioController.dispose();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
   }, [sessionId]);
 
@@ -208,6 +236,48 @@ export function PracticeSession({ sessionId }: Props) {
           <p className="mt-2">
             ലേറ്റൻസി തിരുത്തൽ: {sessionState.latencyOffsetMs} ms
           </p>
+          <fieldset className="mt-4">
+            <legend className="font-semibold">പ്ലേബാക്ക് മോഡ്</legend>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {modes.map((mode) => (
+                <button
+                  aria-pressed={activeMode === mode.mode}
+                  disabled={!mode.available}
+                  key={mode.mode}
+                  onClick={() => {
+                    const source = playbackSources[mode.mode];
+                    if (!source) return;
+                    void controller
+                      .switchPlaybackSource(source)
+                      .then(() => setActiveMode(mode.mode));
+                  }}
+                  title={mode.reason ?? undefined}
+                  type="button"
+                >
+                  {mode.mode === "original"
+                    ? "ഒറിജിനൽ"
+                    : mode.mode === "instrumental"
+                      ? "ഇൻസ്ട്രുമെന്റൽ"
+                      : "കുറഞ്ഞ വോക്കൽ"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <label className="mt-4 block">
+            അനുഗമന ശബ്ദനില
+            <input
+              className="ml-3"
+              defaultValue="100"
+              max="100"
+              min="0"
+              onChange={(event) =>
+                controller.setAccompanimentVolume(
+                  Number(event.target.value) / 100,
+                )
+              }
+              type="range"
+            />
+          </label>
           {analysis && (
             <div className="mt-5">
               <PitchCanvas

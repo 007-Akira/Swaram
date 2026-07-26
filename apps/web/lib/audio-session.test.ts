@@ -44,8 +44,11 @@ function environment() {
     currentTime: 0,
     duration: 60,
     paused: true,
+    readyState: 1,
     loop: false,
     playbackRate: 1,
+    volume: 1,
+    addEventListener: vi.fn(),
     play: vi.fn().mockResolvedValue(undefined),
     pause: vi.fn(),
     load: vi.fn(),
@@ -214,6 +217,19 @@ describe("AudioSessionController", () => {
     expect(browser.value.createWorkletNode).toHaveBeenCalledOnce();
     expect(browser.context.createMediaElementSource).toHaveBeenCalledOnce();
     expect(browser.context.createMediaStreamSource).toHaveBeenCalledOnce();
+  });
+
+  it("switches aligned playback modes without replacing the clock or nodes", async () => {
+    const browser = environment();
+    const controller = await readyController(browser);
+    browser.playback.currentTime = 12.5;
+    await controller.switchPlaybackSource("private:original");
+    expect(browser.playback.src).toBe("private:original");
+    expect(browser.playback.currentTime).toBe(12.5);
+    expect(controller.getPracticeTime().rawSongTimeMs).toBe(12_500);
+    expect(browser.context.createMediaElementSource).toHaveBeenCalledOnce();
+    controller.setAccompanimentVolume(0.4);
+    expect(browser.playback.volume).toBe(0.4);
   });
 
   it("releases the microphone and every audio node exactly once", async () => {

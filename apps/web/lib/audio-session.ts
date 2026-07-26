@@ -83,8 +83,15 @@ interface PlaybackElementLike {
   currentTime: number;
   readonly duration: number;
   readonly paused: boolean;
+  readonly readyState: number;
   loop: boolean;
   playbackRate: number;
+  volume: number;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: AddEventListenerOptions | boolean,
+  ): void;
   play(): Promise<void>;
   pause(): void;
   load(): void;
@@ -353,6 +360,40 @@ export class AudioSessionController {
   getPracticeTime(): CorrectedSongTime {
     if (!this.practiceClock) throw new Error("Practice clock is unavailable");
     return this.practiceClock.current();
+  }
+
+  async switchPlaybackSource(
+    playbackUrl: string,
+    preserveAlignedTime = true,
+  ): Promise<void> {
+    if (!this.playback) throw new Error("Playback is unavailable");
+    const wasPlaying = this.state.status === "playing";
+    const currentTime = preserveAlignedTime ? this.playback.currentTime : 0;
+    this.playback.pause();
+    this.playback.src = playbackUrl;
+    this.playback.load();
+    if (this.playback.readyState === 0) {
+      await new Promise<void>((resolve) => {
+        this.playback?.addEventListener("loadedmetadata", () => resolve(), {
+          once: true,
+        });
+      });
+    }
+    this.playback.currentTime = Math.min(
+      currentTime,
+      Number.isFinite(this.playback.duration)
+        ? this.playback.duration
+        : currentTime,
+    );
+    if (wasPlaying) await this.playback.play();
+  }
+
+  setAccompanimentVolume(volume: number): void {
+    if (!this.playback) throw new Error("Playback is unavailable");
+    if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
+      throw new Error("Volume must be between 0 and 1");
+    }
+    this.playback.volume = volume;
   }
 
   async calibrateLeakage(
