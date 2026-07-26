@@ -1,0 +1,344 @@
+export type AudioSessionStatus =
+  | "idle"
+  | "requesting_permission"
+  | "calibrating"
+  | "ready"
+  | "playing"
+  | "paused"
+  | "stopped"
+  | "error";
+
+export interface AudioSessionState {
+  readonly status: AudioSessionStatus;
+  readonly canCalibrate: boolean;
+  readonly canPlay: boolean;
+  readonly canPause: boolean;
+  readonly microphoneActive: boolean;
+  readonly error: string | null;
+}
+
+interface TrackLike {
+  stop(): void;
+}
+
+interface StreamLike {
+  getTracks(): TrackLike[];
+}
+
+interface PortLike {
+  onmessage: ((event: MessageEvent<unknown>) => void) | null;
+}
+
+interface AudioNodeLike {
+  connect(node: AudioNodeLike): AudioNodeLike;
+  disconnect(): void;
+}
+
+interface WorkletNodeLike extends AudioNodeLike {
+  readonly port: PortLike;
+}
+
+interface AudioContextLike {
+  readonly sampleRate: number;
+  readonly destination: AudioNodeLike;
+  readonly audioWorklet: { addModule(url: string): Promise<void> };
+  createMediaElementSource(element: PlaybackElementLike): AudioNodeLike;
+  createMediaStreamSource(stream: StreamLike): AudioNodeLike;
+  close(): Promise<void>;
+}
+
+interface PlaybackElementLike {
+  src: string;
+  currentTime: number;
+  playbackRate: number;
+  play(): Promise<void>;
+  pause(): void;
+  load(): void;
+  remove(): void;
+}
+
+export interface AudioSessionEnvironment {
+  readonly isSecureContext: boolean;
+  readonly getUserMedia: (
+    constraints: MediaStreamConstraints,
+  ) => Promise<StreamLike>;
+  readonly createAudioContext: () => AudioContextLike;
+  readonly createWorkletNode: (context: AudioContextLike) => WorkletNodeLike;
+  readonly createPlaybackElement: () => PlaybackElementLike;
+  readonly addVisibilityListener: (listener: () => void) => void;
+  readonly removeVisibilityListener: (listener: () => void) => void;
+  readonly isDocumentHidden: () => boolean;
+}
+
+export interface AudioSessionOptions {
+  readonly playbackUrl: string;
+  readonly workletUrl?: string;
+}
+
+type StateListener = (state: AudioSessionState) => void;
+type FrameListener = (frame: Float32Array, sampleRate: number) => void;
+
+const LEGAL_TRANSITIONS: Readonly<
+  Record<AudioSessionStatus, ReadonlySet<AudioSessionStatus>>
+> = {
+  idle: new Set(["requesting_permission", "stopped", "error"]),
+  requesting_permission: new Set(["calibrating", "stopped", "error"]),
+  calibrating: new Set(["ready", "stopped", "error"]),
+  ready: new Set(["playing", "stopped", "error"]),
+  playing: new Set(["paused", "stopped", "error"]),
+  paused: new Set(["playing", "stopped", "error"]),
+  stopped: new Set(["requesting_permission", "error"]),
+  error: new Set(["requesting_permission", "stopped"]),
+};
+
+function deriveState(
+  status: AudioSessionStatus,
+  error: string | null = null,
+): AudioSessionState {
+  return {
+    status,
+    canCalibrate: status === "calibrating",
+    canPlay: status === "ready" || status === "paused",
+    canPause: status === "playing",
+    microphoneActive: ["calibrating", "ready", "playing", "paused"].includes(
+      status,
+    ),
+    error,
+  };
+}
+
+function defaultEnvironment(): AudioSessionEnvironment | null {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return null;
+  }
+  const AudioContextConstructor = window.AudioContext;
+  if (
+    !navigator.mediaDevices?.getUserMedia ||
+    !AudioContextConstructor ||
+    typeof AudioWorkletNode === "undefined"
+  ) {
+    return null;
+  }
+  return {
+    isSecureContext: window.isSecureContext,
+    getUserMedia: (constraints) =>
+      navigator.mediaDevices.getUserMedia(constraints),
+    createAudioContext: () => new AudioContextConstructor(),
+    createWorkletNode: (context) =>
+      new AudioWorkletNode(context as AudioContext, "pitch-frame-processor", {
+        numberOfInputs: 1,
+        numberOfOutputs: 0,
+      }),
+    createPlaybackElement: () => new Audio(),
+    addVisibilityListener: (listener) =>
+      document.addEventListener("visibilitychange", listener),
+    removeVisibilityListener: (listener) =>
+      document.removeEventListener("visibilitychange", listener),
+    isDocumentHidden: () => document.hidden,
+  };
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof DOMException && error.name === "NotAllowedError") {
+    return "മൈക്രോഫോൺ അനുമതി ലഭിച്ചില്ല. ബ്രൗസർ ക്രമീകരണത്തിൽ അനുമതി നൽകുക.";
+  }
+  return "ഓഡിയോ സെഷൻ ആരംഭിക്കാനായില്ല. വീണ്ടും ശ്രമിക്കുക.";
+}
+
+export class AudioSessionController {
+  private state = deriveState("idle");
+  private readonly stateListeners = new Set<StateListener>();
+  private readonly frameListeners = new Set<FrameListener>();
+  private readonly visibilityListener = () => {
+    if (this.environment?.isDocumentHidden()) {
+      void this.stop();
+    }
+  };
+  private context: AudioContextLike | null = null;
+  private stream: StreamLike | null = null;
+  private microphoneSource: AudioNodeLike | null = null;
+  private playbackSource: AudioNodeLike | null = null;
+  private worklet: WorkletNodeLike | null = null;
+  private playback: PlaybackElementLike | null = null;
+  private disposed = false;
+  private lifecycleGeneration = 0;
+
+  constructor(
+    private readonly options: AudioSessionOptions,
+    private readonly environment: AudioSessionEnvironment | null = defaultEnvironment(),
+  ) {
+    this.environment?.addVisibilityListener(this.visibilityListener);
+  }
+
+  getState(): AudioSessionState {
+    return this.state;
+  }
+
+  subscribe(listener: StateListener): () => void {
+    this.stateListeners.add(listener);
+    listener(this.state);
+    return () => this.stateListeners.delete(listener);
+  }
+
+  onFrame(listener: FrameListener): () => void {
+    this.frameListeners.add(listener);
+    return () => this.frameListeners.delete(listener);
+  }
+
+  async requestPermission(): Promise<void> {
+    this.assertUsable();
+    if (
+      this.state.status !== "idle" &&
+      this.state.status !== "stopped" &&
+      this.state.status !== "error"
+    ) {
+      return;
+    }
+    if (!this.environment || !this.environment.isSecureContext) {
+      this.transition(
+        "error",
+        "മൈക്രോഫോൺ ഉപയോഗിക്കാൻ HTTPS പിന്തുണ ആവശ്യമാണ്.",
+      );
+      return;
+    }
+    this.transition("requesting_permission");
+    const generation = ++this.lifecycleGeneration;
+    try {
+      await this.releaseResources();
+      const stream = await this.environment.getUserMedia({
+        audio: {
+          autoGainControl: false,
+          echoCancellation: false,
+          noiseSuppression: false,
+        },
+      });
+      if (generation !== this.lifecycleGeneration) {
+        for (const track of stream.getTracks()) track.stop();
+        return;
+      }
+      this.stream = stream;
+      this.context = this.environment.createAudioContext();
+      await this.context.audioWorklet.addModule(
+        this.options.workletUrl ?? "/audio/pitch-frame-worklet.js",
+      );
+      if (generation !== this.lifecycleGeneration) {
+        await this.releaseResources();
+        return;
+      }
+      this.playback = this.environment.createPlaybackElement();
+      this.playback.src = this.options.playbackUrl;
+      this.microphoneSource = this.context.createMediaStreamSource(this.stream);
+      this.playbackSource = this.context.createMediaElementSource(
+        this.playback,
+      );
+      this.worklet = this.environment.createWorkletNode(this.context);
+      this.worklet.port.onmessage = (event) => {
+        if (!(event.data instanceof ArrayBuffer)) return;
+        const frame = new Float32Array(event.data);
+        const sampleRate = this.context?.sampleRate ?? 0;
+        for (const listener of this.frameListeners) listener(frame, sampleRate);
+      };
+      this.microphoneSource.connect(this.worklet);
+      this.playbackSource.connect(this.context.destination);
+      this.transition("calibrating");
+    } catch (error) {
+      await this.releaseResources();
+      if (generation === this.lifecycleGeneration) {
+        this.transition("error", errorMessage(error));
+      }
+    }
+  }
+
+  completeCalibration(): void {
+    this.transition("ready");
+  }
+
+  async play(): Promise<void> {
+    if (this.state.status !== "ready" && this.state.status !== "paused") {
+      throw new Error(`Cannot play audio from ${this.state.status}`);
+    }
+    if (!this.playback) throw new Error("Playback is unavailable");
+    try {
+      await this.playback.play();
+      this.transition("playing");
+    } catch (error) {
+      this.transition("error", errorMessage(error));
+    }
+  }
+
+  pause(): void {
+    if (this.state.status !== "playing") {
+      throw new Error(`Cannot pause audio from ${this.state.status}`);
+    }
+    this.playback?.pause();
+    this.transition("paused");
+  }
+
+  async restart(): Promise<void> {
+    if (this.state.status !== "playing" && this.state.status !== "paused") {
+      throw new Error(`Cannot restart audio from ${this.state.status}`);
+    }
+    if (!this.playback) throw new Error("Playback is unavailable");
+    this.playback.currentTime = 0;
+    if (this.state.status === "paused") {
+      await this.play();
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.state.status === "stopped") return;
+    this.lifecycleGeneration += 1;
+    await this.releaseResources();
+    this.transition("stopped");
+  }
+
+  async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.environment?.removeVisibilityListener(this.visibilityListener);
+    await this.stop();
+    this.stateListeners.clear();
+    this.frameListeners.clear();
+    this.disposed = true;
+  }
+
+  private transition(
+    status: AudioSessionStatus,
+    error: string | null = null,
+  ): void {
+    if (status === this.state.status) return;
+    if (!LEGAL_TRANSITIONS[this.state.status].has(status)) {
+      throw new Error(
+        `Illegal audio session transition: ${this.state.status} -> ${status}`,
+      );
+    }
+    this.state = deriveState(status, error);
+    for (const listener of this.stateListeners) listener(this.state);
+  }
+
+  private assertUsable(): void {
+    if (this.disposed) throw new Error("Audio session has been disposed");
+  }
+
+  private async releaseResources(): Promise<void> {
+    this.playback?.pause();
+    if (this.playback) {
+      this.playback.src = "";
+      this.playback.load();
+      this.playback.remove();
+    }
+    if (this.worklet) {
+      this.worklet.port.onmessage = null;
+      this.worklet.disconnect();
+    }
+    this.microphoneSource?.disconnect();
+    this.playbackSource?.disconnect();
+    for (const track of this.stream?.getTracks() ?? []) track.stop();
+    if (this.context) await this.context.close();
+    this.worklet = null;
+    this.microphoneSource = null;
+    this.playbackSource = null;
+    this.stream = null;
+    this.context = null;
+    this.playback = null;
+  }
+}
