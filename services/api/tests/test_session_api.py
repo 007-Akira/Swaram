@@ -177,3 +177,43 @@ async def test_delete_removes_database_and_storage_idempotently(
     assert (
         await api_client.get(f"/api/v1/sessions/{session_id}", headers=auth(token))
     ).status_code == 404
+
+
+@pytest.mark.anyio
+async def test_ready_inputs_create_one_private_idempotent_job(
+    api_client: httpx.AsyncClient, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "swaram_api.sessions.inspect_audio",
+        lambda *_args: AudioMetadata(media_type="audio/wav", duration_ms=100),
+    )
+    session_id, token = await create_private_session(api_client)
+    lyrics = await api_client.post(
+        f"/api/v1/sessions/{session_id}/lyrics",
+        headers=auth(token),
+        data={"text": "പാട്ട്"},
+    )
+    assert lyrics.status_code == 201
+    assert lyrics.json()["job_id"] is None
+    audio = await api_client.post(
+        f"/api/v1/sessions/{session_id}/audio",
+        headers=auth(token),
+        files={"audio": ("audio.wav", b"content", "audio/wav")},
+    )
+    assert audio.status_code == 202
+    job_id = audio.json()["job_id"]
+    job = await api_client.get(f"/api/v1/jobs/{job_id}", headers=auth(token))
+    assert job.status_code == 200
+    assert job.json()["state"] == "queued"
+    assert job.json()["analysis_version"] == "1.0"
+    _, other_token = await create_private_session(api_client)
+    assert (
+        await api_client.get(f"/api/v1/jobs/{job_id}", headers=auth(other_token))
+    ).status_code == 404
+    another_lyrics = await api_client.post(
+        f"/api/v1/sessions/{session_id}/lyrics",
+        headers=auth(token),
+        data={"text": "വീണ്ടും"},
+    )
+    assert another_lyrics.status_code == 202
+    assert another_lyrics.json()["job_id"] == job_id

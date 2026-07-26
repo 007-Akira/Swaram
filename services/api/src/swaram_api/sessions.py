@@ -20,7 +20,14 @@ from sqlalchemy.orm import Session, selectinload
 from swaram_api.audio_validation import AudioValidationError, inspect_audio
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, ErrorResponse
-from swaram_api.models import AssetKind, LyricDocument, LyricLine, PracticeSession, UploadedAsset
+from swaram_api.models import (
+    AssetKind,
+    LyricDocument,
+    LyricLine,
+    PracticeSession,
+    ProcessingJob,
+    UploadedAsset,
+)
 from swaram_api.settings import get_settings
 from swaram_api.storage import (
     ByteRange,
@@ -46,6 +53,7 @@ class AssetSummary(BaseModel):
     media_type: str
     size_bytes: int
     duration_ms: int | None
+    job_id: uuid.UUID | None = None
 
 
 class SessionSummary(BaseModel):
@@ -58,6 +66,7 @@ class SessionSummary(BaseModel):
 class LyricsAccepted(BaseModel):
     document_id: uuid.UUID
     line_count: int
+    job_id: uuid.UUID | None = None
 
 
 class DeletedResponse(BaseModel):
@@ -142,6 +151,7 @@ def _copy_bounded(upload: UploadFile, target: Path, maximum: int) -> int:
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_audio(
+    response: Response,
     practice_session: Annotated[PracticeSession, Depends(require_session)],
     db: Annotated[Session, Depends(get_db_session)],
     storage: Annotated[PrivateStorage, Depends(get_storage)],
@@ -174,12 +184,24 @@ async def upload_audio(
     )
     try:
         db.add(asset)
+        db.flush()
+        job: ProcessingJob | None = None
+        lyric_exists = db.scalar(
+            select(LyricDocument.id).where(LyricDocument.session_id == practice_session.id).limit(1)
+        )
+        if lyric_exists is not None:
+            from swaram_api.jobs import ensure_processing_job
+
+            job = ensure_processing_job(db, practice_session.id, asset.id)
         db.commit()
         db.refresh(asset)
     except BaseException:
         storage.delete(practice_session.id, stored.object_key)
         raise
-    return AssetSummary.model_validate(asset, from_attributes=True)
+    if job is not None:
+        response.status_code = status.HTTP_202_ACCEPTED
+    summary = AssetSummary.model_validate(asset, from_attributes=True)
+    return summary.model_copy(update={"job_id": job.id if job else None})
 
 
 def _lyrics_lines(text: str) -> list[str]:
@@ -202,6 +224,7 @@ async def _stream_range(
     status_code=status.HTTP_201_CREATED,
 )
 async def upload_lyrics(
+    response: Response,
     practice_session: Annotated[PracticeSession, Depends(require_session)],
     db: Annotated[Session, Depends(get_db_session)],
     text: Annotated[str | None, Form()] = None,
@@ -250,9 +273,28 @@ async def upload_lyrics(
         lines=[LyricLine(position=index, text_nfc=line) for index, line in enumerate(lines)],
     )
     db.add(document)
+    db.flush()
+    audio_asset = db.scalar(
+        select(UploadedAsset)
+        .where(
+            UploadedAsset.session_id == practice_session.id,
+            UploadedAsset.kind == AssetKind.ORIGINAL_AUDIO,
+        )
+        .order_by(UploadedAsset.created_at.desc())
+        .limit(1)
+    )
+    job: ProcessingJob | None = None
+    if audio_asset is not None:
+        from swaram_api.jobs import ensure_processing_job
+
+        job = ensure_processing_job(db, practice_session.id, audio_asset.id)
     db.commit()
     db.refresh(document)
-    return LyricsAccepted(document_id=document.id, line_count=len(lines))
+    if job is not None:
+        response.status_code = status.HTTP_202_ACCEPTED
+    return LyricsAccepted(
+        document_id=document.id, line_count=len(lines), job_id=job.id if job else None
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=SessionSummary)

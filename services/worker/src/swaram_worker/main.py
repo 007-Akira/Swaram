@@ -1,20 +1,22 @@
 import argparse
+import socket
 import time
 from collections.abc import Callable, Sequence
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine
 
+from swaram_worker.job_queue import ClaimedJob, PostgreSQLJobQueue
 from swaram_worker.settings import WorkerSettings
 
 
 class Worker:
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, worker_id: str | None = None) -> None:
         self._engine = engine
+        self._queue = PostgreSQLJobQueue(engine, worker_id or f"{socket.gethostname()}-{id(self)}")
 
-    def poll_once(self) -> None:
-        """Verify PostgreSQL connectivity for one idle baseline cycle."""
-        with self._engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+    def poll_once(self) -> ClaimedJob | None:
+        """Recover stale leases and claim at most one durable processing job."""
+        return self._queue.claim_next()
 
     def run(
         self, poll_interval_seconds: float, sleep: Callable[[float], None] = time.sleep
