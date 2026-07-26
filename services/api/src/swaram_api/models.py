@@ -198,6 +198,7 @@ class LyricLine(Base, TimestampMixin):
     text_nfc: Mapped[str] = mapped_column(Text, nullable=False)
     start_ms: Mapped[int | None] = mapped_column(Integer)
     end_ms: Mapped[int | None] = mapped_column(Integer)
+    is_stanza_break: Mapped[bool] = mapped_column(nullable=False, default=False)
     document: Mapped[LyricDocument] = relationship(back_populates="lines")
 
 

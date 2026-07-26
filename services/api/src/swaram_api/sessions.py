@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, selectinload
 from swaram_api.audio_validation import AudioValidationError, inspect_audio
 from swaram_api.database import get_db_session
 from swaram_api.errors import ApiError, ErrorResponse
+from swaram_api.lyric_parser import LyricParseError, decode_lyrics, parse_lyrics
 from swaram_api.models import (
     AssetKind,
     LyricDocument,
@@ -204,10 +205,6 @@ async def upload_audio(
     return summary.model_copy(update={"job_id": job.id if job else None})
 
 
-def _lyrics_lines(text: str) -> list[str]:
-    return [line.strip() for line in text.splitlines() if line.strip()]
-
-
 async def _stream_range(
     storage: PrivateStorage,
     session_id: uuid.UUID,
@@ -253,24 +250,30 @@ async def upload_lyrics(
                 "Lyrics file is too large",
             )
         try:
-            text = raw.decode("utf-8")
-        except UnicodeDecodeError as error:
-            raise ApiError(
-                status.HTTP_422_UNPROCESSABLE_CONTENT,
-                "invalid_utf8",
-                "Lyrics must be valid UTF-8",
-            ) from error
+            text = decode_lyrics(raw)
+        except LyricParseError as error:
+            raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, error.code, str(error)) from error
         source_format = suffix
     normalized = unicodedata.normalize("NFC", text or "").strip()
-    lines = _lyrics_lines(normalized)
-    if not lines:
-        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, "empty_lyrics", "Lyrics are empty")
+    try:
+        lines = parse_lyrics(normalized, source_format)  # type: ignore[arg-type]
+    except LyricParseError as error:
+        raise ApiError(status.HTTP_422_UNPROCESSABLE_CONTENT, error.code, str(error)) from error
     document = LyricDocument(
         session_id=practice_session.id,
         text_nfc=normalized,
         source_format=source_format,
         expires_at=practice_session.expires_at,
-        lines=[LyricLine(position=index, text_nfc=line) for index, line in enumerate(lines)],
+        lines=[
+            LyricLine(
+                position=index,
+                text_nfc=line.text_nfc,
+                start_ms=line.start_ms,
+                end_ms=line.end_ms,
+                is_stanza_break=line.is_stanza_break,
+            )
+            for index, line in enumerate(lines)
+        ],
     )
     db.add(document)
     db.flush()

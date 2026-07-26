@@ -5,6 +5,7 @@ import {
   AnalysisPackageV1Schema,
   isValidJobTransition,
   LyricLineSchema,
+  parseLyricsInput,
   PitchFrameSchema,
   PracticeSessionSchema,
 } from "./index.js";
@@ -101,5 +102,20 @@ describe("contracts", () => {
         sections: [],
       }),
     ).toBeTruthy();
+  });
+
+  it("parses Malayalam TXT, LRC, and SRT without losing repetition or stanzas", () => {
+    const plain = parseLyricsInput("മഴവില്ല്\n\nകൺമണി\nകൺമണി", "txt");
+    expect(plain[1]?.is_stanza_break).toBe(true);
+    expect(plain[2]?.text_nfc).toBe(plain[3]?.text_nfc);
+    expect(parseLyricsInput("[00:34.73]മഴവില്ല്", "lrc")[0]?.start_ms).toBe(
+      34_730,
+    );
+    expect(
+      parseLyricsInput(
+        "1\n00:00:01,250 --> 00:00:02,500\nകൺമണി",
+        "srt",
+      )[0],
+    ).toMatchObject({ start_ms: 1250, end_ms: 2500 });
   });
 });

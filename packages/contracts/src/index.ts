@@ -90,6 +90,145 @@ export const LyricLineSchema = z
   });
 export type LyricLine = z.infer<typeof LyricLineSchema>;
 
+export const ParsedLyricLineSchema = z
+  .object({
+    text_nfc: z.string(),
+    start_ms: z.number().int().nonnegative().nullable(),
+    end_ms: z.number().int().positive().nullable(),
+    is_stanza_break: z.boolean(),
+  })
+  .strict()
+  .refine(
+    (line) =>
+      line.start_ms === null ||
+      line.end_ms === null ||
+      line.end_ms > line.start_ms,
+    { message: "lyric end must follow start" },
+  );
+export type ParsedLyricLine = z.infer<typeof ParsedLyricLineSchema>;
+export type LyricInputFormat = "txt" | "lrc" | "srt";
+
+export class LyricParseError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+function fractionMilliseconds(value: string | undefined): number {
+  if (value === undefined) return 0;
+  if (value.length === 1) return Number(value) * 100;
+  if (value.length === 2) return Number(value) * 10;
+  return Number(value);
+}
+
+function srtMilliseconds(value: string): number {
+  const match = /^(\d{2}):(\d{2}):(\d{2})[,.](\d{3})$/.exec(value);
+  if (!match) throw new LyricParseError("invalid_srt_time", "Invalid SRT timestamp");
+  const [, hours, minutes, seconds, milliseconds] = match;
+  if (Number(minutes) >= 60 || Number(seconds) >= 60) {
+    throw new LyricParseError("invalid_srt_time", "Invalid SRT timestamp");
+  }
+  return (
+    Number(hours) * 3_600_000 +
+    Number(minutes) * 60_000 +
+    Number(seconds) * 1000 +
+    Number(milliseconds)
+  );
+}
+
+function validateParsedLyrics(lines: ParsedLyricLine[]): ParsedLyricLine[] {
+  let previousEnd = -1;
+  for (const line of lines) {
+    if (line.start_ms === null) continue;
+    if (line.end_ms !== null && line.end_ms <= line.start_ms) {
+      throw new LyricParseError("invalid_lyric_time", "Invalid lyric duration");
+    }
+    if (line.start_ms < previousEnd) {
+      throw new LyricParseError("overlapping_lyrics", "Lyrics overlap");
+    }
+    previousEnd = line.end_ms ?? line.start_ms;
+  }
+  return lines;
+}
+
+export function parseLyricsInput(
+  source: string,
+  format: LyricInputFormat,
+): ParsedLyricLine[] {
+  if (source.includes("\0")) {
+    throw new LyricParseError("binary_lyrics", "Lyrics contain binary data");
+  }
+  const normalized = source
+    .normalize("NFC")
+    .replace(/\r\n?/g, "\n")
+    .trim();
+  if (format === "txt") {
+    const lines = normalized.split("\n").map((text) => ({
+      text_nfc: text,
+      start_ms: null,
+      end_ms: null,
+      is_stanza_break: text.trim().length === 0,
+    }));
+    if (!lines.some((line) => !line.is_stanza_break)) {
+      throw new LyricParseError("empty_lyrics", "Lyrics are empty");
+    }
+    return lines;
+  }
+  if (format === "lrc") {
+    const parsed: Array<{ start: number; text: string }> = [];
+    for (const row of normalized.split("\n")) {
+      if (/^\[[A-Za-z]+:/.test(row)) continue;
+      const match = /^((?:\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?\])+)(.*)$/.exec(
+        row,
+      );
+      if (!match || !match[2]) {
+        throw new LyricParseError("invalid_lrc", "Invalid LRC lyric line");
+      }
+      for (const timestamp of match[1].matchAll(
+        /\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g,
+      )) {
+        if (Number(timestamp[2]) >= 60) {
+          throw new LyricParseError("invalid_lrc_time", "Invalid LRC time");
+        }
+        parsed.push({
+          start:
+            Number(timestamp[1]) * 60_000 +
+            Number(timestamp[2]) * 1000 +
+            fractionMilliseconds(timestamp[3]),
+          text: match[2],
+        });
+      }
+    }
+    parsed.sort((left, right) => left.start - right.start);
+    return validateParsedLyrics(
+      parsed.map((line, index) => ({
+        text_nfc: line.text,
+        start_ms: line.start,
+        end_ms: parsed[index + 1]?.start ?? null,
+        is_stanza_break: false,
+      })),
+    );
+  }
+  const cues = normalized.split(/\n\s*\n/).map((block) => {
+    const rows = block.split("\n");
+    if (/^\d+$/.test(rows[0] ?? "")) rows.shift();
+    const timing = /^(\S+)\s+-->\s+(\S+)(?:\s+.*)?$/.exec(rows.shift() ?? "");
+    if (!timing || rows.length === 0) {
+      throw new LyricParseError("invalid_srt", "Invalid SRT cue");
+    }
+    return {
+      text_nfc: rows.join("\n"),
+      start_ms: srtMilliseconds(timing[1]),
+      end_ms: srtMilliseconds(timing[2]),
+      is_stanza_break: false,
+    };
+  });
+  return validateParsedLyrics(cues);
+}
+
 export const PitchFrameSchema = z
   .object({
     time_ms: z.number().int().nonnegative(),
