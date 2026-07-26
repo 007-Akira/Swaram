@@ -56,3 +56,14 @@ export {
   type WindowedInvalidReason,
   type WindowedPitchComparison,
 } from "./windowed-comparison";
+export {
+  calculateWeightedScore,
+  DEFAULT_SCORE_WEIGHTS,
+  SCORE_VERSION,
+  TOLERANCE_PROFILES,
+  type ScoreComponent,
+  type ScoreWeights,
+  type ToleranceProfile,
+  type ToleranceProfileName,
+  type WeightedPhraseScore,
+} from "./weighted-score";
