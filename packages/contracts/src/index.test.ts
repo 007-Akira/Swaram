@@ -32,12 +32,31 @@ describe("contracts", () => {
   ])("rejects invalid pitch data", ({ frequency_hz, confidence }) => {
     expect(() =>
       PitchFrameSchema.parse({
-        time_seconds: 0,
+        time_ms: 0,
         frequency_hz,
+        midi: 69,
         confidence,
         voiced: true,
       }),
     ).toThrow();
+  });
+
+  it("preserves unvoiced regions explicitly", () => {
+    expect(
+      PitchFrameSchema.parse({
+        time_ms: 100,
+        frequency_hz: null,
+        midi: null,
+        confidence: 0.1,
+        voiced: false,
+      }),
+    ).toEqual({
+      time_ms: 100,
+      frequency_hz: null,
+      midi: null,
+      confidence: 0.1,
+      voiced: false,
+    });
   });
 
   it("enforces durable PostgreSQL job transitions", () => {

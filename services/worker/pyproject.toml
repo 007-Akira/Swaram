@@ -7,10 +7,15 @@ name = "swaram-worker"
 version = "0.0.0"
 requires-python = ">=3.11"
 dependencies = [
+  "librosa>=0.11,<1",
+  "numpy>=2.0,<3",
   "pydantic>=2.10,<3",
   "pydantic-settings>=2.7,<3",
   "psycopg[binary]>=3.2,<4",
+  "scipy>=1.15,<2",
+  "soundfile>=0.13,<1",
   "sqlalchemy>=2.0,<3",
+  "swaram-contracts==0.0.0",
 ]
 
 [project.optional-dependencies]
@@ -18,6 +23,7 @@ dev = ["mypy>=1.15,<2", "pytest>=8.3,<9", "ruff>=0.9,<1"]
 
 [project.scripts]
 swaram-worker = "swaram_worker.main:main"
+swaram-reference-contour = "swaram_worker.reference_contour:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/swaram_worker"]

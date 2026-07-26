@@ -92,12 +92,21 @@ export type LyricLine = z.infer<typeof LyricLineSchema>;
 
 export const PitchFrameSchema = z
   .object({
-    time_seconds: nonNegative,
-    frequency_hz: z.number().finite().positive(),
+    time_ms: z.number().int().nonnegative(),
+    frequency_hz: z.number().finite().positive().nullable(),
+    midi: z.number().finite().nullable(),
     confidence,
     voiced: z.boolean(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (frame) =>
+      frame.voiced === (frame.frequency_hz !== null && frame.midi !== null),
+    {
+      message:
+        "voiced frames require frequency_hz and midi; unvoiced frames require nulls",
+    },
+  );
 export type PitchFrame = z.infer<typeof PitchFrameSchema>;
 
 export const SongSectionSchema = z
@@ -120,6 +129,7 @@ export const AnalysisPackageV1Schema = z
     generated_at: timestamp,
     duration_seconds: z.number().finite().positive(),
     pitch_frames: z.array(PitchFrameSchema),
+    raw_pitch_frames: z.array(PitchFrameSchema),
     sections: z.array(SongSectionSchema),
   })
   .strict();

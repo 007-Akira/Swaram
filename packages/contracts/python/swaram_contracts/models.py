@@ -111,10 +111,20 @@ class LyricLine(TimedRange):
 
 
 class PitchFrame(ContractModel):
-    time_seconds: NonNegativeFloat
-    frequency_hz: Annotated[float, Field(gt=0, allow_inf_nan=False)]
+    time_ms: Annotated[int, Field(ge=0)]
+    frequency_hz: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None
+    midi: Annotated[float, Field(allow_inf_nan=False)] | None
     confidence: Confidence
     voiced: bool
+
+    @model_validator(mode="after")
+    def voiced_values_are_consistent(self) -> "PitchFrame":
+        has_pitch = self.frequency_hz is not None and self.midi is not None
+        if self.voiced != has_pitch:
+            raise ValueError(
+                "voiced frames require frequency_hz and midi; unvoiced frames require nulls"
+            )
+        return self
 
 
 class SongSection(TimedRange):
@@ -128,6 +138,7 @@ class AnalysisPackageV1(ContractModel):
     generated_at: AwareDatetime
     duration_seconds: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     pitch_frames: list[PitchFrame]
+    raw_pitch_frames: list[PitchFrame]
     sections: list[SongSection]
 
 

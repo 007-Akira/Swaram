@@ -78,3 +78,6 @@ pnpm format:check
 
 Database integration tests require an explicit disposable
 `TEST_DATABASE_URL`; see [the database guide](docs/database.md).
+
+Authorized WAV reference contour generation is documented in
+[the offline contour guide](docs/reference-contour.md).

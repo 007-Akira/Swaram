@@ -38,8 +38,9 @@ def test_rejects_malformed_timestamp() -> None:
 def test_rejects_invalid_pitch_values(frequency: float, confidence: float) -> None:
     with pytest.raises(ValidationError):
         PitchFrame(
-            time_seconds=0,
+            time_ms=0,
             frequency_hz=frequency,
+            midi=69,
             confidence=confidence,
             voiced=True,
         )
@@ -60,3 +61,14 @@ def test_lyric_text_is_normalized_to_nfc() -> None:
         end_seconds=1,
     )
     assert line.text == unicodedata.normalize("NFC", decomposed)
+
+
+def test_unvoiced_pitch_frame_uses_explicit_nulls() -> None:
+    frame = PitchFrame(
+        time_ms=100,
+        frequency_hz=None,
+        midi=None,
+        confidence=0.1,
+        voiced=False,
+    )
+    assert frame.frequency_hz is None

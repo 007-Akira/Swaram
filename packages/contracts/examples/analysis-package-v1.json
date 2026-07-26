@@ -5,8 +5,18 @@
   "duration_seconds": 1.5,
   "pitch_frames": [
     {
-      "time_seconds": 0.1,
+      "time_ms": 100,
       "frequency_hz": 261.63,
+      "midi": 60,
+      "confidence": 0.94,
+      "voiced": true
+    }
+  ],
+  "raw_pitch_frames": [
+    {
+      "time_ms": 100,
+      "frequency_hz": 261.63,
+      "midi": 60,
       "confidence": 0.94,
       "voiced": true
     }
