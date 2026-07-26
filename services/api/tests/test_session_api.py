@@ -1,6 +1,7 @@
 import io
 import unicodedata
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import httpx
@@ -81,6 +82,25 @@ async def test_session_is_private_and_cross_session_access_is_hidden(
     assert (
         await api_client.get(f"/api/v1/sessions/{session_id}", headers=auth(token))
     ).status_code == 200
+
+
+@pytest.mark.anyio
+async def test_expired_session_is_unrecoverable_before_cleanup(
+    api_client: httpx.AsyncClient,
+) -> None:
+    session_id, token = await create_private_session(api_client)
+    application = api_client._transport.app  # type: ignore[attr-defined]
+    with application.state.test_session_factory() as db:
+        practice_session = db.get(PracticeSession, UUID(session_id))
+        assert practice_session is not None
+        practice_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    response = await api_client.get(
+        f"/api/v1/sessions/{session_id}",
+        headers=auth(token),
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "session_not_found"
 
 
 @pytest.mark.anyio

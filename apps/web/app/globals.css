@@ -13,15 +13,28 @@ body {
 
 button,
 a,
-input {
+input,
+textarea,
+select,
+summary {
   touch-action: manipulation;
 }
 
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
   outline: 3px solid #67e8f9;
   outline-offset: 3px;
+}
+
+p,
+li,
+label,
+textarea {
+  overflow-wrap: anywhere;
 }
 
 button {
@@ -33,4 +46,15 @@ button {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

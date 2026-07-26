@@ -19,6 +19,7 @@
     "wavesurfer.js": "7.11.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
     "@playwright/test": "1.55.0",
     "@tailwindcss/postcss": "4.0.14",
     "@testing-library/jest-dom": "6.6.3",

@@ -147,8 +147,10 @@ async def require_session(
         )
     )
     supplied_hash = token_hash(session_token)
-    if practice_session is None or not secrets.compare_digest(
-        practice_session.owner_token_hash, supplied_hash
+    if (
+        practice_session is None
+        or _utc_datetime(practice_session.expires_at) <= datetime.now(UTC)
+        or not secrets.compare_digest(practice_session.owner_token_hash, supplied_hash)
     ):
         raise ApiError(status.HTTP_404_NOT_FOUND, "session_not_found", "Session not found")
     return practice_session

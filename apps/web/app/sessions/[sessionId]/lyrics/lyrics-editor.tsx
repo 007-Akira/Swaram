@@ -21,6 +21,7 @@ import {
 } from "../../../../lib/lyric-sync";
 import { LyricWaveform } from "./lyric-waveform";
 import { ReadinessPanel } from "./readiness-panel";
+import { SessionPrivacyControls } from "../../session-privacy-controls";
 
 interface Props {
   sessionId: string;
@@ -404,6 +405,7 @@ export function LyricsEditor({ sessionId }: Props) {
             </li>
           ))}
         </ol>
+        <SessionPrivacyControls sessionId={sessionId} />
       </section>
     </main>
   );

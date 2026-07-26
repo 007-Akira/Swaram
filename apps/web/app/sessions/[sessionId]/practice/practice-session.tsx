@@ -16,6 +16,7 @@ import {
   AudioSessionController,
   type AudioSessionState,
 } from "../../../../lib/audio-session";
+import { SessionPrivacyControls } from "../../session-privacy-controls";
 import { HeadphoneCalibration } from "./headphone-calibration";
 import {
   playbackModeAvailability,
@@ -617,6 +618,7 @@ export function PracticeSession({ sessionId }: Props) {
           </p>
         </section>
       )}
+      <SessionPrivacyControls sessionId={sessionId} />
     </main>
   );
 }

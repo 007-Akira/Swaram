@@ -116,6 +116,9 @@ Browser YIN frame sizing and sample-rate trade-offs are documented in
 [the pitch detection guide](docs/browser-pitch-detection.md).
 Reproducible generated-signal metrics and the private Malayalam evaluation
 protocol are documented in [the evaluation guide](docs/evaluation.md).
+Accessibility, privacy controls, automated checks, and manual audit limitations
+are recorded in
+[the accessibility/privacy audit](docs/accessibility-privacy-audit.md).
 Secure microphone lifecycle behavior is documented in
 [the microphone capture guide](docs/microphone-capture.md).
 The worker's bounded FFmpeg normalization contract is documented in

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 const analysis = {
   analysis_version: "1.0",
@@ -45,6 +46,12 @@ test("serves Malayalam UI with privacy security headers", async ({ page }) => {
   expect(response?.headers()["permissions-policy"]).toContain(
     "microphone=(self)",
   );
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(
+    accessibility.violations.filter(({ impact }) =>
+      ["critical", "serious"].includes(impact ?? ""),
+    ),
+  ).toEqual([]);
 });
 
 test("loads the practice graph and explains mocked microphone denial", async ({
@@ -84,4 +91,10 @@ test("loads the practice graph and explains mocked microphone denial", async ({
       exact: true,
     }),
   ).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(
+    accessibility.violations.filter(({ impact }) =>
+      ["critical", "serious"].includes(impact ?? ""),
+    ),
+  ).toEqual([]);
 });
