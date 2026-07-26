@@ -132,13 +132,43 @@ class SongSection(TimedRange):
     label: Annotated[NonEmptyText, Field(max_length=100)]
 
 
+class PitchRangeMetadata(ContractModel):
+    minimum_frequency_hz: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    maximum_frequency_hz: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+
+    @model_validator(mode="after")
+    def range_is_ordered(self) -> "PitchRangeMetadata":
+        if (
+            self.minimum_frequency_hz is not None
+            and self.maximum_frequency_hz is not None
+            and self.maximum_frequency_hz < self.minimum_frequency_hz
+        ):
+            raise ValueError("maximum_frequency_hz must not be below minimum_frequency_hz")
+        return self
+
+
+class EnergyPoint(ContractModel):
+    time_ms: Annotated[int, Field(ge=0)]
+    rms: NonNegativeFloat
+
+
 class AnalysisPackageV1(ContractModel):
     analysis_version: Literal["1.0"] = "1.0"
     session_id: UUID
     generated_at: AwareDatetime
     duration_seconds: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     pitch_frames: list[PitchFrame]
-    raw_pitch_frames: list[PitchFrame]
+    raw_pitch_frames: list[PitchFrame] = Field(default_factory=list, exclude=True)
+    input_checksum_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] = "0" * 64
+    pipeline_version: NonEmptyText = ANALYSIS_VERSION
+    model_identifier: NonEmptyText = "none"
+    pitch_range: PitchRangeMetadata = Field(default_factory=PitchRangeMetadata)
+    voiced_coverage: Confidence = 0
+    estimated_tempo_bpm: Annotated[float, Field(gt=0, allow_inf_nan=False)] | None = None
+    tempo_confidence: Confidence = 0
+    tempo_limitation: NonEmptyText = "Tempo metadata is unavailable."
+    beat_timestamps_ms: list[Annotated[int, Field(ge=0)]] = Field(default_factory=list)
+    energy_envelope: list[EnergyPoint] = Field(default_factory=list)
     sections: list[SongSection]
 
 

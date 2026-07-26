@@ -26,6 +26,7 @@ class JobStatus(BaseModel):
     analysis_version: str
     state: JobState
     progress: int
+    progress_stage: str
     attempt_count: int
     failure_code: str | None
     created_at: datetime

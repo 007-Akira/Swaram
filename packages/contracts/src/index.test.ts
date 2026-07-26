@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ANALYSIS_VERSION,
+  AnalysisPackageV1Schema,
   isValidJobTransition,
   LyricLineSchema,
   PitchFrameSchema,
@@ -74,5 +75,31 @@ describe("contracts", () => {
       end_seconds: 1,
     });
     expect(line.text).toBe(text.normalize("NFC"));
+  });
+
+  it("validates compact public analysis metadata without raw debug frames", () => {
+    expect(
+      AnalysisPackageV1Schema.parse({
+        analysis_version: "1.0",
+        session_id: "f88c2a2b-1d5a-4c27-b4b9-38c320a14821",
+        generated_at: "2026-07-26T10:00:00Z",
+        duration_seconds: 1,
+        input_checksum_sha256: "a".repeat(64),
+        pipeline_version: "1.0",
+        model_identifier: "htdemucs",
+        pitch_range: {
+          minimum_frequency_hz: 220,
+          maximum_frequency_hz: 440,
+        },
+        voiced_coverage: 0.5,
+        estimated_tempo_bpm: null,
+        tempo_confidence: 0,
+        tempo_limitation: "Low confidence.",
+        beat_timestamps_ms: [],
+        energy_envelope: [],
+        pitch_frames: [],
+        sections: [],
+      }),
+    ).toBeTruthy();
   });
 });

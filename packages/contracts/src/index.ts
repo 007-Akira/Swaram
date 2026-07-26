@@ -122,6 +122,27 @@ export const SongSectionSchema = z
   });
 export type SongSection = z.infer<typeof SongSectionSchema>;
 
+export const PitchRangeMetadataSchema = z
+  .object({
+    minimum_frequency_hz: z.number().finite().positive().nullable(),
+    maximum_frequency_hz: z.number().finite().positive().nullable(),
+  })
+  .strict()
+  .refine(
+    (range) =>
+      range.minimum_frequency_hz === null ||
+      range.maximum_frequency_hz === null ||
+      range.maximum_frequency_hz >= range.minimum_frequency_hz,
+    { message: "pitch range must be ordered" },
+  );
+
+export const EnergyPointSchema = z
+  .object({
+    time_ms: z.number().int().nonnegative(),
+    rms: nonNegative,
+  })
+  .strict();
+
 export const AnalysisPackageV1Schema = z
   .object({
     analysis_version: z.literal(ANALYSIS_VERSION),
@@ -129,7 +150,16 @@ export const AnalysisPackageV1Schema = z
     generated_at: timestamp,
     duration_seconds: z.number().finite().positive(),
     pitch_frames: z.array(PitchFrameSchema),
-    raw_pitch_frames: z.array(PitchFrameSchema),
+    input_checksum_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    pipeline_version: z.string().min(1),
+    model_identifier: z.string().min(1),
+    pitch_range: PitchRangeMetadataSchema,
+    voiced_coverage: confidence,
+    estimated_tempo_bpm: z.number().finite().positive().nullable(),
+    tempo_confidence: confidence,
+    tempo_limitation: z.string().min(1),
+    beat_timestamps_ms: z.array(z.number().int().nonnegative()),
+    energy_envelope: z.array(EnergyPointSchema),
     sections: z.array(SongSectionSchema),
   })
   .strict();

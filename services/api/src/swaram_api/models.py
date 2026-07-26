@@ -138,6 +138,7 @@ class ProcessingJob(Base, TimestampMixin):
         Enum(JobState, name="job_state"), nullable=False, default=JobState.QUEUED
     )
     progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    progress_stage: Mapped[str] = mapped_column(String(64), nullable=False, default="queued")
     available_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

@@ -3,16 +3,25 @@
   "session_id": "f88c2a2b-1d5a-4c27-b4b9-38c320a14821",
   "generated_at": "2026-07-26T10:00:00Z",
   "duration_seconds": 1.5,
-  "pitch_frames": [
+  "input_checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "pipeline_version": "1.0",
+  "model_identifier": "htdemucs",
+  "pitch_range": {
+    "minimum_frequency_hz": 261.63,
+    "maximum_frequency_hz": 261.63
+  },
+  "voiced_coverage": 0.8,
+  "estimated_tempo_bpm": 120,
+  "tempo_confidence": 0.7,
+  "tempo_limitation": "Onset-based estimate.",
+  "beat_timestamps_ms": [500, 1000],
+  "energy_envelope": [
     {
-      "time_ms": 100,
-      "frequency_hz": 261.63,
-      "midi": 60,
-      "confidence": 0.94,
-      "voiced": true
+      "time_ms": 0,
+      "rms": 0.1
     }
   ],
-  "raw_pitch_frames": [
+  "pitch_frames": [
     {
       "time_ms": 100,
       "frequency_hz": 261.63,
