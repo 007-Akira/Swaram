@@ -1,5 +1,7 @@
 # Swaram
 
+[![CI](https://github.com/007-Akira/Swaram/actions/workflows/ci.yml/badge.svg)](https://github.com/007-Akira/Swaram/actions/workflows/ci.yml)
+
 Swaram is a Malayalam-only, privacy-focused singing pitch-practice
 application. The project is under active, phase-by-phase development.
 
@@ -49,3 +51,27 @@ See
 [the architecture overview](docs/architecture.md) for component boundaries.
 PostgreSQL setup and migration commands are documented in
 [the database guide](docs/database.md).
+
+## Quality gates
+
+The GitHub Actions workflow requires no GPU, Docker daemon, external secrets,
+or running database for unit checks. Its separate integration job supplies an
+ephemeral PostgreSQL service.
+
+Run the local equivalents with:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm format:check
+.venv/bin/ruff check services packages/contracts
+.venv/bin/ruff format --check services packages/contracts
+.venv/bin/mypy services/api/src services/worker/src packages/contracts/python
+.venv/bin/pytest -m "not integration"
+```
+
+Database integration tests require an explicit disposable
+`TEST_DATABASE_URL`; see [the database guide](docs/database.md).
