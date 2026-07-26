@@ -1,0 +1,16 @@
+{
+  "name": "@swaram/audio-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3",
+    "vitest": "3.0.8"
+  }
+}

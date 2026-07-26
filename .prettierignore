@@ -1,0 +1,5 @@
+.next
+node_modules
+dist
+pnpm-lock.yaml
+Swaram_Codex_Prompt_Pack*
