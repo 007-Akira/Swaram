@@ -34,3 +34,5 @@ python -m pip install -e packages/contracts -e "services/api[dev]" -e "services/
 
 Run `pnpm dev` after activating the Python virtual environment. See
 [the architecture overview](docs/architecture.md) for component boundaries.
+PostgreSQL setup and migration commands are documented in
+[the database guide](docs/database.md).

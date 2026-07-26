@@ -13,7 +13,10 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "db:upgrade": ".venv/bin/alembic -c services/api/alembic.ini upgrade head",
+    "db:downgrade": ".venv/bin/alembic -c services/api/alembic.ini downgrade -1",
+    "db:status": ".venv/bin/alembic -c services/api/alembic.ini current"
   },
   "devDependencies": {
     "prettier": "3.5.3",

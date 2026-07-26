@@ -15,4 +15,4 @@ python_version = "3.11"
 strict = true
 namespace_packages = true
 explicit_package_bases = true
-
+mypy_path = ["services/api/src", "services/worker/src", "packages/contracts/python"]
