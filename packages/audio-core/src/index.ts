@@ -43,3 +43,10 @@ export {
   type LoopRegion,
 } from "./practice-loop";
 export { detectPitchYin, type YinOptions, type YinPitchResult } from "./yin";
+export {
+  comparePitchToReferenceWindow,
+  type TimedPitchObservation,
+  type WindowedComparisonConfig,
+  type WindowedInvalidReason,
+  type WindowedPitchComparison,
+} from "./windowed-comparison";
