@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { StartSession } from "./start-session";
+import { TestSessionRedirect } from "./test-session-redirect";
 
 const workflow = [
   {
@@ -22,6 +23,20 @@ const workflow = [
 ];
 
 export default function Home() {
+  const testSessionId =
+    process.env.NODE_ENV === "development"
+      ? process.env.SWARAM_TEST_SESSION_ID
+      : undefined;
+  const testSessionToken =
+    process.env.NODE_ENV === "development"
+      ? process.env.SWARAM_TEST_SESSION_TOKEN
+      : undefined;
+  if (testSessionId && testSessionToken) {
+    return (
+      <TestSessionRedirect sessionId={testSessionId} token={testSessionToken} />
+    );
+  }
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#06100d] text-[#f3faf6]">
       <div
