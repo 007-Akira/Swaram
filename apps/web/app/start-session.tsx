@@ -3,11 +3,18 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { rememberSession } from "../lib/session-access";
+
 type Stage = "idle" | "creating" | "audio" | "lyrics" | "ready";
 
 interface SessionCreated {
   id: string;
   access_token: string;
+  expires_at: string;
+}
+
+interface LyricsAccepted {
+  job_id: string | null;
 }
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -64,10 +71,11 @@ export function StartSession() {
         await fetch(`${apiUrl}/api/v1/sessions`, { method: "POST" }),
         "Could not create a private session.",
       );
-      window.sessionStorage.setItem(
-        `swaram:${created.id}:token`,
-        created.access_token,
-      );
+      rememberSession(created.id, {
+        token: created.access_token,
+        expiresAt: created.expires_at,
+        songName: audio.name,
+      });
 
       setStage("audio");
       const audioBody = new FormData();
@@ -85,7 +93,7 @@ export function StartSession() {
       const lyricsBody = new FormData();
       if (lyricsFile) lyricsBody.append("lyrics", lyricsFile);
       else lyricsBody.append("text", lyrics.trim());
-      await checkedJson(
+      const accepted = await checkedJson<LyricsAccepted>(
         await fetch(`${apiUrl}/api/v1/sessions/${created.id}/lyrics`, {
           method: "POST",
           headers: { "X-Session-Token": created.access_token },
@@ -94,8 +102,18 @@ export function StartSession() {
         "The lyrics could not be prepared.",
       );
 
+      if (!accepted.job_id) {
+        throw new Error("Audio processing could not be started.");
+      }
+      rememberSession(created.id, {
+        token: created.access_token,
+        expiresAt: created.expires_at,
+        songName: audio.name,
+        jobId: accepted.job_id,
+      });
+
       setStage("ready");
-      router.push(`/sessions/${created.id}/lyrics`);
+      router.push(`/sessions/${created.id}/processing`);
     } catch (reason) {
       setStage("idle");
       setError(
@@ -108,6 +126,7 @@ export function StartSession() {
 
   return (
     <section
+      id="start"
       aria-labelledby="start-title"
       className="relative rounded-[2rem] border border-white/10 bg-[#0b1915]/95 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-7"
     >
