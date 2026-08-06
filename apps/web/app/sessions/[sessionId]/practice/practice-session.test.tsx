@@ -17,9 +17,9 @@ describe("PracticeSession", () => {
     window.sessionStorage.clear();
     render(<PracticeSession sessionId="private-session" />);
     expect(
-      await screen.findByText(
-        "The access token for this private session is unavailable.",
-      ),
+      await screen.findByRole("heading", {
+        name: "Private session access is missing",
+      }),
     ).toBeInTheDocument();
   });
 });

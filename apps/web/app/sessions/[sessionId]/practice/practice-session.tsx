@@ -17,7 +17,11 @@ import {
   type AudioSessionState,
 } from "../../../../lib/audio-session";
 import { SessionPrivacyControls } from "../../session-privacy-controls";
+import { SessionUnavailable } from "../../../components/session-unavailable";
+import { unavailableVariant } from "../../../../lib/session-access";
+import { usePracticeCapabilities } from "../../../../lib/use-practice-capabilities";
 import { HeadphoneCalibration } from "./headphone-calibration";
+import { UnsupportedPracticeEnvironment } from "./unsupported-practice-environment";
 import {
   playbackModeAvailability,
   preferredPlaybackMode,
@@ -50,6 +54,7 @@ const INITIAL_STATE: AudioSessionState = {
 export function PracticeSession({ sessionId }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const capabilities = usePracticeCapabilities();
   const [controller, setController] = useState<AudioSessionController | null>(
     null,
   );
@@ -275,6 +280,17 @@ export function PracticeSession({ sessionId }: Props) {
   }, [controller, referenceMidiByTime, referenceObservations]);
 
   useEffect(() => {
+    if (!controller) return;
+    const handleDeletion = (event: Event) => {
+      const detail = (event as CustomEvent<{ sessionId?: string }>).detail;
+      if (detail?.sessionId === sessionId) void controller.dispose();
+    };
+    window.addEventListener("swaram:session-deleted", handleDeletion);
+    return () =>
+      window.removeEventListener("swaram:session-deleted", handleDeletion);
+  }, [controller, sessionId]);
+
+  useEffect(() => {
     if (!controller || !analysis || !activeMode) return;
     return controller.onCompleted(() => {
       setCountInActive(false);
@@ -387,12 +403,27 @@ export function PracticeSession({ sessionId }: Props) {
     }
   };
 
-  if (loadError) return <main className="p-6 text-red-200">{loadError}</main>;
+  if (loadError) {
+    return (
+      <SessionUnavailable
+        onRetry={() => window.location.reload()}
+        variant={unavailableVariant(sessionId)}
+      />
+    );
+  }
   if (!controller) return <main className="p-6">Loading practice…</main>;
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl p-6">
-      {completed ? (
+      {capabilities.checking ? (
+        <p aria-live="polite">Checking browser capabilities…</p>
+      ) : !capabilities.supported ? (
+        <UnsupportedPracticeEnvironment
+          issues={capabilities.issues}
+          onRetry={capabilities.retry}
+          sessionId={sessionId}
+        />
+      ) : completed ? (
         <section aria-label="Practice complete">
           <h1 className="text-3xl font-semibold">Practice complete</h1>
           <p className="mt-3">This practice round has ended.</p>
@@ -410,6 +441,7 @@ export function PracticeSession({ sessionId }: Props) {
       ) : !ready ? (
         <HeadphoneCalibration
           controller={controller}
+          onCapabilityIssue={capabilities.reportIssue}
           onReady={() => {
             controller.estimateLatency();
             const requestedSeek = Number(searchParams.get("seek"));

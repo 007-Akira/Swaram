@@ -22,6 +22,11 @@ import {
 import { LyricWaveform } from "./lyric-waveform";
 import { ReadinessPanel } from "./readiness-panel";
 import { SessionPrivacyControls } from "../../session-privacy-controls";
+import { SessionUnavailable } from "../../../components/session-unavailable";
+import {
+  unavailableVariant,
+  type SessionUnavailableVariant,
+} from "../../../../lib/session-access";
 
 interface Props {
   sessionId: string;
@@ -36,6 +41,8 @@ export function LyricsEditor({ sessionId }: Props) {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
   const [saveVersion, setSaveVersion] = useState(0);
+  const [unavailable, setUnavailable] =
+    useState<SessionUnavailableVariant | null>(null);
   const loaded = useRef(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const history = useRef<EditableLyricLine[][]>([]);
@@ -44,6 +51,11 @@ export function LyricsEditor({ sessionId }: Props) {
     typeof window === "undefined"
       ? null
       : window.sessionStorage.getItem(`swaram:${sessionId}:token`);
+
+  useEffect(() => {
+    if (!token)
+      queueMicrotask(() => setUnavailable(unavailableVariant(sessionId)));
+  }, [sessionId, token]);
 
   const save = useCallback(async () => {
     if (!token) {
@@ -86,7 +98,10 @@ export function LyricsEditor({ sessionId }: Props) {
       { headers: { "X-Session-Token": token } },
     )
       .then(async (response) => {
-        if (!response.ok) throw new Error("lyrics unavailable");
+        if (!response.ok) {
+          setUnavailable(unavailableVariant(sessionId, response));
+          throw new Error("lyrics unavailable");
+        }
         return (await response.json()) as { lines: EditableLyricLine[] };
       })
       .then((payload) => {
@@ -192,6 +207,15 @@ export function LyricsEditor({ sessionId }: Props) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [markCurrentLine]);
+
+  if (unavailable) {
+    return (
+      <SessionUnavailable
+        onRetry={() => window.location.reload()}
+        variant={unavailable}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#07130f] px-4 py-8 text-[#f1faf5]">

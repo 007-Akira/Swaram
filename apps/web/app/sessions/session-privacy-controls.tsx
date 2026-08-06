@@ -1,18 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { markSessionDeleted, sessionToken } from "../../lib/session-access";
 
 interface Props {
   readonly sessionId: string;
 }
 
 export function SessionPrivacyControls({ sessionId }: Props) {
+  const router = useRouter();
   const [confirmed, setConfirmed] = useState(false);
   const [status, setStatus] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   const deleteSession = async () => {
-    const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
+    const token = sessionToken(sessionId);
     if (!token) {
       setStatus("The private session token is unavailable.");
       return;
@@ -28,8 +32,11 @@ export function SessionPrivacyControls({ sessionId }: Props) {
         },
       );
       if (!response.ok) throw new Error("delete failed");
-      window.sessionStorage.removeItem(`swaram:${sessionId}:token`);
-      window.location.assign("/");
+      window.dispatchEvent(
+        new CustomEvent("swaram:session-deleted", { detail: { sessionId } }),
+      );
+      markSessionDeleted(sessionId);
+      router.replace("/sessions/deleted");
     } catch {
       setStatus("The session could not be deleted. Please try again.");
       setDeleting(false);

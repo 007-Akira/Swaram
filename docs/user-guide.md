@@ -6,16 +6,19 @@ authorized to process.
 
 ## Current flow
 
-The engine API creates a private 24-hour session, accepts one supported audio
-upload and UTF-8 Malayalam TXT/LRC/SRT lyrics, and starts analysis when both are
-present. The browser routes then support lyric editing/synchronization,
-headphone calibration, practice, and reports. The landing page does not yet
-provide a complete session creation/upload form, so initial session setup
-currently requires an API client or integrating frontend.
+The browser creates a private 24-hour session, uploads one supported audio file
+and UTF-8 Malayalam lyrics, and opens a private processing screen. That screen
+polls the durable backend worker using its real job stage and percentage; it
+does not estimate progress from elapsed time. Success opens lyric editing and
+synchronization, followed by headphone calibration, practice, and reports.
 
 Keep the returned session token private. It is stored only in browser
 `sessionStorage` by the current route integration and is required for every
 private operation. The server stores only its SHA-256 hash.
+
+The development-only seeded redirect bypasses normal setup only when its
+explicit development environment variables are configured. Production follows
+create → upload → processing → lyrics, and private tokens never appear in URLs.
 
 ## Lyrics and practice
 
@@ -38,8 +41,9 @@ and short transitions are excluded where possible.
 Uploads, lyrics, derivatives, and reports are private and expire after the
 configured retention period (24 hours by default). Raw microphone audio stays
 in the browser and is not recorded. Session screens expose an immediate delete
-control; confirm it to remove private objects and database records. Signed
-playback URLs last no more than five minutes.
+control; confirm it to remove private objects and database records. Confirmed
+deletion stops the active session UI, clears its browser token, and opens a
+terminal deletion screen. Signed playback URLs last no more than five minutes.
 
 ## Compatibility and limitations
 
@@ -54,3 +58,13 @@ breathy, noisy, polyphonic, or very low/high notes and can make octave errors.
 Live YIN depends on microphone quality, room noise, frame size, and latency
 calibration. Rule-based scores are meaningful only when voiced coverage and
 confidence are adequate.
+
+Session routes use one safe recovery screen for missing or invalid access,
+expiry, deletion, missing files, and temporary failures. The API deliberately
+hides whether an inaccessible private session exists, so some server-side cases
+share the same “unavailable” wording.
+
+Before calibration, Swaram feature-detects secure context, microphone APIs,
+Web Audio, AudioWorklet, decoding, and Canvas. It never requests microphone
+permission on page load; the request follows the explicit “Allow microphone”
+action. Permission denial and missing input devices provide recovery guidance.

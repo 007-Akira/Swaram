@@ -3,6 +3,8 @@
 import type { LeakageCalibrationResult } from "@swaram/audio-core";
 import { useState } from "react";
 
+import type { PracticeCapabilityIssue } from "../../../../lib/use-practice-capabilities";
+
 interface CalibrationController {
   getState(): { readonly status: string; readonly error?: string | null };
   requestPermission(): Promise<void>;
@@ -14,6 +16,7 @@ interface CalibrationController {
 interface Props {
   readonly controller: CalibrationController;
   readonly onReady: () => void;
+  readonly onCapabilityIssue?: (issue: PracticeCapabilityIssue) => void;
 }
 
 const RESULT_TEXT: Record<LeakageCalibrationResult["level"], string> = {
@@ -23,7 +26,11 @@ const RESULT_TEXT: Record<LeakageCalibrationResult["level"], string> = {
   inconclusive: "The microphone signal is too low. Check the connection.",
 };
 
-export function HeadphoneCalibration({ controller, onReady }: Props) {
+export function HeadphoneCalibration({
+  controller,
+  onReady,
+  onCapabilityIssue,
+}: Props) {
   const [permissionReady, setPermissionReady] = useState(false);
   const [running, setRunning] = useState(false);
   const [override, setOverride] = useState(false);
@@ -41,7 +48,14 @@ export function HeadphoneCalibration({ controller, onReady }: Props) {
         throw new Error("microphone unavailable");
       }
       setPermissionReady(true);
-    } catch {
+    } catch (reason) {
+      if (reason instanceof DOMException) {
+        if (["NotAllowedError", "SecurityError"].includes(reason.name)) {
+          onCapabilityIssue?.("microphone_permission_denied");
+        } else if (reason.name === "NotFoundError") {
+          onCapabilityIssue?.("no_input_device");
+        }
+      }
       setError((current) => current ?? "The microphone could not start.");
     } finally {
       setRunning(false);
