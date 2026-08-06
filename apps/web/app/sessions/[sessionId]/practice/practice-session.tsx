@@ -76,12 +76,15 @@ export function PracticeSession({ sessionId }: Props) {
   const [countIn, setCountIn] = useState(false);
   const [countInActive, setCountInActive] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<0.5 | 0.75 | 0.9 | 1>(1);
   const [loopStatus, setLoopStatus] = useState("Loop is off.");
   const lastPitchRender = useRef(0);
   const lastTimeRender = useRef(0);
   const livePoints = useRef<ContourPoint[]>([]);
   const attemptSamples = useRef<PhraseComparisonSample[]>([]);
+  const submittingAttempt = useRef(false);
   const referencePoints = useMemo(
     () =>
       analysis?.pitch_frames.map((frame) => ({
@@ -290,27 +293,35 @@ export function PracticeSession({ sessionId }: Props) {
       window.removeEventListener("swaram:session-deleted", handleDeletion);
   }, [controller, sessionId]);
 
-  useEffect(() => {
-    if (!controller || !analysis || !activeMode) return;
-    return controller.onCompleted(() => {
-      setCountInActive(false);
-      const payload = buildAttemptPayload(
-        analysis,
-        lyrics,
-        attemptSamples.current,
-        {
-          mode: activeMode,
-          speed: playbackSpeed,
-          latencyOffsetMs: controller.getState().latencyOffsetMs,
-          profile: "intermediate",
-        },
-      );
-      const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
-      if (!token) {
-        setCompleted(true);
-        return;
-      }
-      void fetch(
+  const submitAttempt = useCallback(async () => {
+    if (!controller || !analysis || !activeMode || submittingAttempt.current) {
+      return;
+    }
+    submittingAttempt.current = true;
+    setCountInActive(false);
+    setGeneratingReport(true);
+    setReportError(null);
+    const payload = buildAttemptPayload(
+      analysis,
+      lyrics,
+      attemptSamples.current,
+      {
+        mode: activeMode,
+        speed: playbackSpeed,
+        latencyOffsetMs: Math.max(0, controller.getState().latencyOffsetMs),
+        profile: "intermediate",
+      },
+    );
+    const token = window.sessionStorage.getItem(`swaram:${sessionId}:token`);
+    if (!token) {
+      submittingAttempt.current = false;
+      setGeneratingReport(false);
+      setReportError("Private session access is unavailable.");
+      setCompleted(true);
+      return;
+    }
+    try {
+      const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1/sessions/${sessionId}/attempts`,
         {
           method: "POST",
@@ -320,14 +331,18 @@ export function PracticeSession({ sessionId }: Props) {
           },
           body: JSON.stringify(payload),
         },
-      )
-        .then(async (response) => {
-          if (!response.ok) throw new Error("attempt save failed");
-          return (await response.json()) as { id: string };
-        })
-        .then(({ id }) => router.push(`/sessions/${sessionId}/reports/${id}`))
-        .catch(() => setCompleted(true));
-    });
+      );
+      if (!response.ok) throw new Error("attempt save failed");
+      const { id } = (await response.json()) as { id: string };
+      router.push(`/sessions/${sessionId}/reports/${id}`);
+    } catch {
+      submittingAttempt.current = false;
+      setGeneratingReport(false);
+      setReportError(
+        "The detailed report could not be generated. Your local practice data is still available to retry.",
+      );
+      setCompleted(true);
+    }
   }, [
     activeMode,
     analysis,
@@ -337,6 +352,18 @@ export function PracticeSession({ sessionId }: Props) {
     router,
     sessionId,
   ]);
+
+  useEffect(() => {
+    if (!controller) return;
+    return controller.onCompleted(() => void submitAttempt());
+  }, [controller, submitAttempt]);
+
+  const stopAndReport = useCallback(async () => {
+    if (!controller || generatingReport) return;
+    setGeneratingReport(true);
+    await controller.stop();
+    await submitAttempt();
+  }, [controller, generatingReport, submitAttempt]);
 
   useEffect(() => {
     if (!controller || !ready) return;
@@ -378,7 +405,7 @@ export function PracticeSession({ sessionId }: Props) {
       ) {
         void controller.restart();
       } else if (event.key === "Escape") {
-        void controller.stop();
+        void stopAndReport();
       } else if (event.key === "[") {
         setLoopStartMs(controller.getPracticeTime().comparisonTimeMs);
       } else if (event.key === "]") {
@@ -387,7 +414,7 @@ export function PracticeSession({ sessionId }: Props) {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [controller, ready]);
+  }, [controller, ready, stopAndReport]);
 
   const applyLoop = (startMs: number, endMs: number) => {
     if (!controller) return;
@@ -423,15 +450,42 @@ export function PracticeSession({ sessionId }: Props) {
           onRetry={capabilities.retry}
           sessionId={sessionId}
         />
+      ) : generatingReport ? (
+        <section aria-live="polite" className="py-16 text-center">
+          <p className="text-sm font-bold uppercase tracking-wider text-amber-300">
+            Practice complete
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold">
+            Generating your detailed report…
+          </h1>
+          <p className="mt-3 text-slate-300">
+            Calculating pitch, timing, contour, stability, completion, and
+            lyric-by-lyric statistics.
+          </p>
+        </section>
       ) : completed ? (
         <section aria-label="Practice complete">
-          <h1 className="text-3xl font-semibold">Practice complete</h1>
-          <p className="mt-3">This practice round has ended.</p>
+          <h1 className="text-3xl font-semibold">Report generation stopped</h1>
+          <p className="mt-3">
+            {reportError ?? "This practice round has ended."}
+          </p>
+          {reportError && (
+            <button
+              className="mt-5"
+              onClick={() => void submitAttempt()}
+              type="button"
+            >
+              Retry detailed report
+            </button>
+          )}
           <button
-            className="mt-5"
+            className="mt-5 ml-3"
             onClick={() => {
               setCompleted(false);
               setReady(false);
+              setReportError(null);
+              submittingAttempt.current = false;
+              attemptSamples.current.length = 0;
             }}
             type="button"
           >
@@ -642,13 +696,17 @@ export function PracticeSession({ sessionId }: Props) {
             <button onClick={() => controller.nudgeLatency(10)} type="button">
               Latency +10 ms
             </button>
-            <button onClick={() => void controller.stop()} type="button">
-              Stop
+            <button
+              disabled={generatingReport}
+              onClick={() => void stopAndReport()}
+              type="button"
+            >
+              {generatingReport ? "Generating report…" : "Stop & view report"}
             </button>
           </div>
           <p className="mt-4 text-sm text-slate-300">
             Keyboard: Space plays or pauses, R restarts, [ sets in, ] sets out,
-            and Escape stops.
+            and Escape stops and opens your report.
           </p>
         </section>
       )}

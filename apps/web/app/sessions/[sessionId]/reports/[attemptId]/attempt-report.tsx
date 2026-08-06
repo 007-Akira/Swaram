@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 export interface AttemptReportData {
+  readonly analysis_version: string;
+  readonly score_version: string;
+  readonly tolerance_profile: "beginner" | "intermediate";
+  readonly mode: "original" | "instrumental" | "reduced_reference";
+  readonly speed: number;
+  readonly latency_offset_ms: number;
   readonly overall_score: number | null;
   readonly component_scores: Record<string, number | null>;
   readonly evidence_confidence: number;
+  readonly valid_voiced_frames: number;
   readonly feedback: Array<{
     code: string;
     kind: "strength" | "correction" | "insufficient";
@@ -13,12 +20,16 @@ export interface AttemptReportData {
     line_id: string;
     text: string;
     start_ms: number;
+    end_ms: number;
     score: number | null;
     metrics: Record<
       string,
       {
+        score: number | null;
+        value: number | null;
         confidence: number;
         coverage: number;
+        sufficient: boolean;
       }
     >;
     feedback: Array<{ code: string; message: string }>;
@@ -46,6 +57,13 @@ const COMPONENT_LABELS: Record<string, string> = {
 };
 
 export function AttemptReport({ sessionId, attempt, history }: Props) {
+  const scoredPhrases = attempt.data.phrases.filter(
+    ({ score }) => score !== null,
+  ).length;
+  const durationMs = attempt.data.phrases.reduce(
+    (maximum, phrase) => Math.max(maximum, phrase.end_ms),
+    0,
+  );
   return (
     <main className="mx-auto min-h-screen max-w-3xl p-6">
       <h1 className="text-3xl font-semibold">Practice report</h1>
@@ -58,6 +76,26 @@ export function AttemptReport({ sessionId, attempt, history }: Props) {
         Evidence confidence:{" "}
         {Math.round(attempt.data.evidence_confidence * 100)}%
       </p>
+      <section
+        aria-label="Attempt statistics"
+        className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        {[
+          ["Voiced frames", attempt.data.valid_voiced_frames.toLocaleString()],
+          ["Lyrics scored", `${scoredPhrases}/${attempt.data.phrases.length}`],
+          ["Practice mode", attempt.data.mode.replaceAll("_", " ")],
+          ["Playback speed", `${attempt.data.speed}×`],
+          ["Latency correction", `${attempt.data.latency_offset_ms} ms`],
+          ["Last lyric reached", `${(durationMs / 1_000).toFixed(1)} s`],
+          ["Analysis version", attempt.data.analysis_version],
+          ["Score version", attempt.data.score_version],
+        ].map(([label, value]) => (
+          <div className="rounded-lg border border-slate-700 p-3" key={label}>
+            <p className="text-sm text-slate-300">{label}</p>
+            <p className="mt-1 font-data text-lg capitalize">{value}</p>
+          </div>
+        ))}
+      </section>
       <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {Object.entries(attempt.data.component_scores).map(([key, score]) => (
           <div className="rounded-lg bg-slate-900 p-3" key={key}>
