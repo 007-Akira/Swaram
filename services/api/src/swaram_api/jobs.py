@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, status
@@ -53,12 +53,7 @@ def ensure_processing_job(db: Session, session_id: uuid.UUID, asset_id: uuid.UUI
     return job
 
 
-@router.get("/jobs/{job_id}", response_model=JobStatus)
-async def get_job(
-    job_id: uuid.UUID,
-    db: Annotated[Session, Depends(get_db_session)],
-    session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
-) -> JobStatus:
+def _authorized_job(db: Session, job_id: uuid.UUID, session_token: str | None) -> ProcessingJob:
     if not session_token:
         raise ApiError(
             status.HTTP_401_UNAUTHORIZED, "session_token_required", "Session token required"
@@ -72,7 +67,51 @@ async def get_job(
     if (
         job is None
         or not isinstance(job.session, PracticeSession)
+        or (
+            job.session.expires_at.replace(tzinfo=UTC)
+            if job.session.expires_at.tzinfo is None
+            else job.session.expires_at.astimezone(UTC)
+        )
+        <= datetime.now(UTC)
         or not secrets.compare_digest(job.session.owner_token_hash, supplied_hash)
     ):
         raise ApiError(status.HTTP_404_NOT_FOUND, "job_not_found", "Job not found")
+    return job
+
+
+@router.get("/jobs/{job_id}", response_model=JobStatus)
+async def get_job(
+    job_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
+) -> JobStatus:
+    job = _authorized_job(db, job_id, session_token)
+    return JobStatus.model_validate(job, from_attributes=True)
+
+
+@router.post("/jobs/{job_id}/retry", response_model=JobStatus)
+async def retry_job(
+    job_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db_session)],
+    session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
+) -> JobStatus:
+    job = _authorized_job(db, job_id, session_token)
+    if job.state is not JobState.FAILED:
+        raise ApiError(
+            status.HTTP_409_CONFLICT,
+            "job_not_retryable",
+            "Only a failed processing job can be retried",
+        )
+    job.transition_to(JobState.QUEUED)
+    job.progress = 0
+    job.progress_stage = "queued"
+    job.available_at = datetime.now(UTC)
+    job.claimed_by = None
+    job.lease_expires_at = None
+    job.heartbeat_at = None
+    job.failure_code = None
+    job.failure_detail = None
+    job.finished_at = None
+    db.commit()
+    db.refresh(job)
     return JobStatus.model_validate(job, from_attributes=True)

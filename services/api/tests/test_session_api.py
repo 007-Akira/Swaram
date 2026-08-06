@@ -12,7 +12,14 @@ from sqlalchemy.pool import StaticPool
 from swaram_api.audio_validation import AudioMetadata, AudioValidationError
 from swaram_api.database import Base, get_db_session
 from swaram_api.main import create_app
-from swaram_api.models import AnalysisPackage, PracticeAttempt, PracticeSession, UploadedAsset
+from swaram_api.models import (
+    AnalysisPackage,
+    JobState,
+    PracticeAttempt,
+    PracticeSession,
+    ProcessingJob,
+    UploadedAsset,
+)
 from swaram_api.sessions import get_storage
 from swaram_api.settings import Settings
 from swaram_api.storage import LocalPrivateStorage
@@ -283,6 +290,44 @@ async def test_ready_inputs_create_one_private_idempotent_job(
     )
     assert another_lyrics.status_code == 202
     assert another_lyrics.json()["job_id"] == job_id
+
+
+@pytest.mark.anyio
+async def test_failed_private_job_can_be_retried_through_http(
+    api_client: httpx.AsyncClient, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "swaram_api.sessions.inspect_audio",
+        lambda *_args: AudioMetadata(media_type="audio/wav", duration_ms=100),
+    )
+    session_id, token = await create_private_session(api_client)
+    await api_client.post(
+        f"/api/v1/sessions/{session_id}/lyrics", headers=auth(token), data={"text": "പാട്ട്"}
+    )
+    audio = await api_client.post(
+        f"/api/v1/sessions/{session_id}/audio",
+        headers=auth(token),
+        files={"audio": ("audio.wav", b"content", "audio/wav")},
+    )
+    job_id = audio.json()["job_id"]
+    application = api_client._transport.app  # type: ignore[attr-defined]
+    with application.state.test_session_factory() as db:
+        job = db.get(ProcessingJob, UUID(job_id))
+        assert job is not None
+        job.state = JobState.FAILED
+        job.progress = 60
+        job.progress_stage = "extracting_contour"
+        job.failure_code = "audio_tool_timeout"
+        db.commit()
+
+    response = await api_client.post(f"/api/v1/jobs/{job_id}/retry", headers=auth(token))
+    assert response.status_code == 200
+    assert response.json()["state"] == "queued"
+    assert response.json()["progress"] == 0
+    assert response.json()["failure_code"] is None
+    assert (
+        await api_client.post(f"/api/v1/jobs/{job_id}/retry", headers=auth(token))
+    ).status_code == 409
 
 
 @pytest.mark.anyio
