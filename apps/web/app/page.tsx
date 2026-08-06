@@ -1,7 +1,7 @@
 import Link from "next/link";
 
+import { DemoPractice } from "./demo-practice";
 import { StartSession } from "./start-session";
-import { TestSessionRedirect } from "./test-session-redirect";
 
 const workflow = [
   {
@@ -31,12 +31,6 @@ export default function Home() {
     process.env.NODE_ENV === "development"
       ? process.env.SWARAM_TEST_SESSION_TOKEN
       : undefined;
-  if (testSessionId && testSessionToken) {
-    return (
-      <TestSessionRedirect sessionId={testSessionId} token={testSessionToken} />
-    );
-  }
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#06100d] text-[#f3faf6]">
       <div
@@ -125,7 +119,12 @@ export default function Home() {
           </div>
         </div>
 
-        <StartSession />
+        <div className="space-y-4">
+          {testSessionId && testSessionToken && (
+            <DemoPractice sessionId={testSessionId} token={testSessionToken} />
+          )}
+          <StartSession />
+        </div>
       </section>
 
       <section className="relative border-t border-white/[.06] bg-black/10">
