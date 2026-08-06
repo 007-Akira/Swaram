@@ -20,18 +20,18 @@ export function DemoPractice({ sessionId, token }: Props) {
   };
 
   return (
-    <aside className="rounded-2xl border border-amber-200/20 bg-amber-200/[.07] p-4 text-amber-50">
+    <aside className="rounded-lg border border-[#e3beb8] bg-[#fff0ee] p-4 text-[#261816]">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-200">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#775a19]">
             Ready-made local demo
           </p>
-          <p className="mt-1 text-sm text-slate-300">
+          <p className="mt-1 text-sm text-[#5a403c]">
             Skip setup and practise with the stored test song.
           </p>
         </div>
         <button
-          className="shrink-0 bg-amber-200 px-4 py-3 font-semibold text-[#261900] hover:bg-amber-100"
+          className="shrink-0 rounded bg-[#8b0000] px-5 py-3 font-semibold text-white hover:bg-[#610000]"
           onClick={openDemo}
           type="button"
         >

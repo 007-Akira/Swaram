@@ -27,7 +27,9 @@ describe("Home", () => {
   it("renders the product entry experience", () => {
     render(<Home />);
     expect(
-      screen.getByRole("heading", { name: /find the note/i }),
+      screen.getByRole("heading", {
+        name: /create a private practice session/i,
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /set up your practice/i }),
@@ -67,12 +69,12 @@ describe("Home", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     render(<Home />);
-    fireEvent.change(screen.getByLabelText("1. Song audio"), {
+    fireEvent.change(screen.getByLabelText("Reference audio"), {
       target: {
         files: [new File(["audio"], "song.wav", { type: "audio/wav" })],
       },
     });
-    fireEvent.change(screen.getByLabelText("2. Lyrics"), {
+    fireEvent.change(screen.getByLabelText("Paste lyrics"), {
       target: { value: "പാട്ട്" },
     });
     fireEvent.click(

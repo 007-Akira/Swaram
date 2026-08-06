@@ -125,142 +125,214 @@ export function StartSession() {
   };
 
   return (
-    <section
-      id="start"
-      aria-labelledby="start-title"
-      className="relative rounded-[2rem] border border-white/10 bg-[#0b1915]/95 p-5 shadow-2xl shadow-black/40 backdrop-blur sm:p-7"
-    >
-      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/70 to-transparent" />
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-            Start here
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold" id="start-title">
-            Set up your practice
-          </h2>
-        </div>
-        <span className="rounded-full border border-emerald-300/15 bg-emerald-300/[.06] px-3 py-1 text-[11px] text-emerald-100/80">
-          Private · 24h
-        </span>
-      </div>
-
-      <form className="space-y-5" onSubmit={(event) => void submit(event)}>
-        <div>
-          <label className="mb-2 block text-sm font-medium" htmlFor="audio">
-            1. Song audio
-          </label>
-          <label
-            className="flex cursor-pointer items-center gap-4 rounded-2xl border border-dashed border-emerald-200/20 bg-black/15 p-4 transition-colors hover:border-emerald-200/45"
-            htmlFor="audio"
-          >
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-emerald-300/10 text-xl text-emerald-200">
-              ↑
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium">
-                {audio?.name ?? "Choose an audio file"}
-              </span>
-              <span className="mt-1 block text-xs text-slate-400">
-                MP3, WAV, M4A or FLAC
-              </span>
-            </span>
-          </label>
-          <input
-            accept=".mp3,.wav,.m4a,.flac,audio/mpeg,audio/wav,audio/mp4,audio/flac"
-            className="sr-only"
-            disabled={busy}
-            id="audio"
-            name="audio"
-            onChange={(event) => setAudio(event.target.files?.[0] ?? null)}
-            type="file"
-          />
-        </div>
-
-        <div>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <label className="block text-sm font-medium" htmlFor="lyrics">
-              2. Lyrics
-            </label>
-            <span className="text-[11px] text-slate-500">
-              Malayalam Unicode
-            </span>
-          </div>
-          <textarea
-            className="min-h-28 w-full resize-y rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-600 focus:border-emerald-300/50 focus:ring-2 focus:ring-emerald-300/10"
-            disabled={busy || Boolean(lyricsFile)}
-            id="lyrics"
-            onChange={(event) => setLyrics(event.target.value)}
-            placeholder={
-              "Paste one lyric line at a time…\n\nBlank lines create stanzas."
-            }
-            value={lyrics}
-          />
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-            <span>or</span>
+    <section id="start" aria-labelledby="start-title" className="scroll-mt-24">
+      <h2 className="sr-only" id="start-title">
+        Set up your practice
+      </h2>
+      <form onSubmit={(event) => void submit(event)}>
+        <div className="grid items-start gap-6 md:grid-cols-2">
+          <section className="flex flex-col gap-3">
             <label
-              className="cursor-pointer font-medium text-emerald-300 underline decoration-emerald-300/30 underline-offset-4"
-              htmlFor="lyrics-file"
+              className="text-xs font-bold uppercase tracking-[0.12em] text-[#5a403c]"
+              htmlFor="audio"
             >
-              {lyricsFile ? lyricsFile.name : "upload TXT, LRC or SRT"}
+              Reference audio
             </label>
-            {lyricsFile && (
-              <button
-                className="min-h-0 p-1 text-slate-400 underline"
-                onClick={() => {
-                  setLyricsFile(null);
-                  if (lyricsFileRef.current) lyricsFileRef.current.value = "";
-                }}
-                type="button"
+            {audio ? (
+              <div className="flex min-h-[280px] flex-col items-center justify-center rounded-lg border border-[#e3beb8] bg-white p-8 text-center">
+                <span
+                  aria-hidden="true"
+                  className="grid size-14 place-items-center rounded bg-[#8b0000] text-2xl text-white"
+                >
+                  ♫
+                </span>
+                <p className="mt-4 max-w-full truncate font-medium">
+                  {audio.name}
+                </p>
+                <p className="font-data mt-1 text-xs text-[#5a403c]">
+                  {(audio.size / 1024 / 1024).toFixed(1)} MB
+                </p>
+                <button
+                  className="mt-5 border border-[#8e706b] bg-transparent text-[#610000]"
+                  disabled={busy}
+                  onClick={() => setAudio(null)}
+                  type="button"
+                >
+                  Choose another file
+                </button>
+              </div>
+            ) : (
+              <label
+                className="flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-[#8e706b] bg-[#fff0ee] p-8 text-center transition-colors hover:bg-[#ffe9e6]"
+                htmlFor="audio"
               >
-                remove
-              </button>
+                <span aria-hidden="true" className="text-4xl text-[#610000]">
+                  ♬
+                </span>
+                <span className="mt-4 font-medium">
+                  Choose your reference audio
+                </span>
+                <span className="mt-1 text-sm text-[#5a403c]">
+                  Browse from your computer
+                </span>
+                <span className="mt-5 flex flex-wrap justify-center gap-2">
+                  {["MP3", "WAV", "M4A", "FLAC"].map((format) => (
+                    <span
+                      className="rounded bg-[#f8dcd8] px-2 py-1 text-xs font-bold text-[#5a403c]"
+                      key={format}
+                    >
+                      {format}
+                    </span>
+                  ))}
+                </span>
+              </label>
             )}
-          </div>
-          <input
-            accept=".txt,.lrc,.srt,text/plain,application/x-subrip"
-            className="sr-only"
-            disabled={busy}
-            id="lyrics-file"
-            onChange={(event) => {
-              setLyricsFile(event.target.files?.[0] ?? null);
-              setLyrics("");
-            }}
-            ref={lyricsFileRef}
-            type="file"
-          />
+            <input
+              accept=".mp3,.wav,.m4a,.flac,audio/mpeg,audio/wav,audio/mp4,audio/flac"
+              className="sr-only"
+              disabled={busy}
+              id="audio"
+              name="audio"
+              onChange={(event) => setAudio(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-end justify-between border-b border-[#e3beb8]">
+              <label
+                className="border-b-2 border-[#8b0000] px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#610000]"
+                htmlFor="lyrics"
+              >
+                Paste lyrics
+              </label>
+              <label
+                className="cursor-pointer px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#5a403c] hover:text-[#610000]"
+                htmlFor="lyrics-file"
+              >
+                Upload file
+              </label>
+            </div>
+            <textarea
+              className="malayalam-text min-h-[240px] w-full flex-1 resize-none border-0 border-b border-[#8e706b] bg-transparent px-1 py-3 text-lg text-[#261816] outline-none placeholder:text-[#8e706b] focus:border-[#8b0000] focus:ring-0"
+              disabled={busy || Boolean(lyricsFile)}
+              id="lyrics"
+              onChange={(event) => setLyrics(event.target.value)}
+              placeholder={
+                "Paste one lyric line at a time…\n\nBlank lines create stanzas."
+              }
+              value={lyrics}
+            />
+            <div className="flex items-center justify-between gap-3 text-xs text-[#5a403c]">
+              <span>
+                {lyricsFile
+                  ? lyricsFile.name
+                  : `${lyrics.length} characters · Malayalam Unicode`}
+              </span>
+              {lyricsFile && (
+                <button
+                  className="min-h-0 bg-transparent p-1 text-[#610000] underline"
+                  onClick={() => {
+                    setLyricsFile(null);
+                    if (lyricsFileRef.current) lyricsFileRef.current.value = "";
+                  }}
+                  type="button"
+                >
+                  remove
+                </button>
+              )}
+            </div>
+            <input
+              accept=".txt,.lrc,.srt,text/plain,application/x-subrip"
+              className="sr-only"
+              disabled={busy}
+              id="lyrics-file"
+              onChange={(event) => {
+                setLyricsFile(event.target.files?.[0] ?? null);
+                setLyrics("");
+              }}
+              ref={lyricsFileRef}
+              type="file"
+            />
+          </section>
         </div>
+
+        <ol
+          className="mx-auto my-9 flex max-w-3xl items-start justify-between"
+          aria-label="Session creation progress"
+        >
+          {[
+            ["creating", "Creating"],
+            ["audio", "Uploading"],
+            ["lyrics", "Processing"],
+            ["ready", "Preparing"],
+          ].map(([key, label], index) => {
+            const order = ["idle", "creating", "audio", "lyrics", "ready"];
+            const current = order.indexOf(stage);
+            const position = index + 1;
+            const complete = current > position;
+            const active = current === position;
+            return (
+              <li
+                className="relative flex flex-1 flex-col items-center text-center"
+                key={key}
+              >
+                {index > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className={`absolute right-1/2 top-3 h-px w-full ${complete || active ? "bg-[#8b0000]" : "bg-[#e3beb8]"}`}
+                  />
+                )}
+                <span
+                  className={`relative z-10 grid size-6 place-items-center rounded-full border-2 text-xs ${complete ? "border-[#8b0000] bg-[#8b0000] text-white" : active ? "border-[#8b0000] bg-[#fff8f6] text-[#8b0000]" : "border-[#e3beb8] bg-[#fff8f6] text-[#8e706b]"}`}
+                >
+                  {complete ? "✓" : active ? "•" : ""}
+                </span>
+                <span
+                  className={`mt-2 text-[10px] font-bold uppercase tracking-wider ${complete || active ? "text-[#610000]" : "text-[#8e706b]"}`}
+                >
+                  {label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
 
         {error && (
           <p
             aria-live="assertive"
-            className="rounded-xl border border-rose-300/15 bg-rose-400/[.07] px-4 py-3 text-sm text-rose-100"
+            className="mb-4 rounded border border-[#ba1a1a] bg-[#ffdad6] px-4 py-3 text-sm text-[#93000a]"
           >
             {error}
           </p>
         )}
 
-        <button
-          className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-300 px-5 py-4 font-semibold text-[#07130f] shadow-lg shadow-emerald-950/30 transition hover:bg-emerald-200 disabled:hover:bg-emerald-300"
-          disabled={busy}
-          type="submit"
+        <section
+          id="privacy"
+          className="flex scroll-mt-24 flex-col items-center justify-between gap-6 rounded-lg border border-[#e3beb8] bg-[#fff0ee] p-6 md:flex-row"
         >
-          {stageLabel[stage]}
-          {!busy && (
-            <span
-              aria-hidden="true"
-              className="transition-transform group-hover:translate-x-1"
-            >
-              →
+          <div className="flex max-w-2xl items-start gap-3">
+            <span aria-hidden="true" className="text-2xl text-[#610000]">
+              ◇
             </span>
-          )}
-        </button>
+            <div>
+              <h3 className="font-medium">Acoustic privacy assured</h3>
+              <p className="mt-1 text-sm leading-6 text-[#5a403c]">
+                Microphone data is processed locally during practice. Uploaded
+                reference files and lyrics are automatically removed after the
+                session retention period.
+              </p>
+            </div>
+          </div>
+          <button
+            className="w-full shrink-0 rounded bg-[#8b0000] px-8 py-4 font-semibold text-white shadow-[inset_0_-2px_0_rgba(0,0,0,.15)] hover:bg-[#610000] md:w-auto"
+            disabled={busy}
+            type="submit"
+          >
+            {stageLabel[stage]} {!busy && "→"}
+          </button>
+        </section>
       </form>
-
-      <p className="mt-5 text-center text-[11px] leading-5 text-slate-500">
-        Uploads are private and expire automatically. Microphone audio remains
-        in your browser.
-      </p>
     </section>
   );
 }
