@@ -113,6 +113,8 @@ export class LivePitchProcessor {
     let accepted = rawFrequency;
     const center = this.history.length > 0 ? median(this.history) : null;
     if (center !== null) {
+      // YIN can briefly choose a neighboring octave, so compare the new pitch
+      // with both octave equivalents of the recent median before accepting it.
       const octaveDistance = Math.min(
         centsBetween(rawFrequency, center * 2),
         centsBetween(rawFrequency, center / 2),
@@ -123,6 +125,8 @@ export class LivePitchProcessor {
           centsBetween(rawFrequency, this.pendingOctave) >
             this.config.octaveToleranceCents
         ) {
+          // Hold the established pitch for one frame; a repeated octave jump is
+          // treated as intentional and starts a fresh smoothing window below.
           this.pendingOctave = rawFrequency;
           accepted = center;
         } else {
