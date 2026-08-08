@@ -12,6 +12,10 @@ or personally identifying evaluation data.
    shared payloads.
 5. Document privacy, retention, environment, migration, or operational changes.
 
+When a change has multiple authors, preserve their attribution with Git
+`Co-authored-by` trailers using an email connected to each contributor's GitHub
+account.
+
 Pull requests should state the behavior changed, commands actually run, test
 results, migrations/configuration changes, and limitations. Never attach
 private media to an issue or pull request. Use generated tones or original,
