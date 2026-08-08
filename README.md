@@ -337,5 +337,5 @@ Report security issues privately using [SECURITY.md](SECURITY.md).
 
 ---
 
-Built for singers who want to understand the next phrase—not just chase a
+Built for singers who want to understand the next phrase not just chase a
 number.
